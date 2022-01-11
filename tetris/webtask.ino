@@ -3,17 +3,157 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include "FS.h"
-#include <LITTLEFS.h>
+#include <LittleFS.h>
 
-void sendAPI(WiFiClient c, char* msg)
-{
-  c.println(msg);
-  c.println();
+
+void handleNotFound(AsyncWebServerRequest *request) {
+  String message = "File Not Found\n\n";
+  message += "URI: ";
+  message += request->url();
+  message += "\nMethod: ";
+  message += (request->method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += request->args();
+  message += "\n";
+ 
+  for (uint8_t i = 0; i < request->args(); i++) {
+    message += " " + request->argName(i) + ": " + request->arg(i) + "\n";
+  }
+ 
+  request->send(404, "text/plain", message);
 }
 
-void sendOK(WiFiClient c)
+void handleTest(AsyncWebServerRequest *request) {
+  String message = "Test OK\n\n";
+  message += "URI: ";
+  message += request->url();
+  message += "\nMethod: ";
+  message += (request->method() == HTTP_GET) ? "GET" : "POST";
+  message += "\nArguments: ";
+  message += request->args();
+  message += "\n";
+ 
+  for (uint8_t i = 0; i < request->args(); i++) {
+    message += " " + request->argName(i) + ": " + request->arg(i) + "\n";
+  }
+ 
+  request->send(200, "text/plain", message);
+}
+
+bool loadFromLittleFS(AsyncWebServerRequest *request, String path) {
+  String dataType = "text/html";
+ 
+  Serial.print("Requested page -> ");
+  Serial.println(path);
+  if (LittleFS.exists(path)){
+      File dataFile = LittleFS.open(path, "r");
+      if (!dataFile) {
+          handleNotFound(request);
+          return false;
+      }
+ 
+        AsyncWebServerResponse *response = request->beginResponse(LittleFS, path, dataType);
+        Serial.print("Real file path: ");
+        Serial.println(path);
+ 
+        request->send(response);
+ 
+ 
+      dataFile.close();
+  }else{
+      handleNotFound(request);
+      return false;
+  }
+  return true;
+}
+ 
+ 
+void handleRoot(AsyncWebServerRequest *request) {
+    loadFromLittleFS(request, "/index.html");
+}
+
+void handleControl(AsyncWebServerRequest *request, const char c)
 {
-  sendAPI(c, "OK");
+                  xQueueSend(commandQ, &c, portMAX_DELAY);
+                request->send(200,"OK");
+}
+
+void handleTetris(AsyncWebServerRequest *request)
+{ 
+  if (request->hasArg("move"))
+  {
+    char direction = request->arg("move").c_str()[0];
+    switch (direction)
+    {
+      case 'l':
+        handleControl(request, 'L');
+        break;
+      case 'r':
+        handleControl(request, 'R');
+        break;
+      case 'd':
+        handleControl(request, 'D');
+        break;
+      default:
+        handleNotFound(request);
+    }
+  }
+  else if (request->hasArg("rotate"))
+  {
+    char direction = request->arg("rotate").c_str()[0];
+    switch (direction)
+    {
+      case 'l':
+        handleControl(request, 'l');
+        break;
+      case 'r':
+        handleControl(request, 'r');
+        break;
+      default:
+        handleNotFound(request);
+    }
+  }
+  else  if (request->hasArg("game"))
+  {
+    char command = request->arg("game").c_str()[0];
+    switch (command)
+    {
+      case 'p':
+        handleControl(request, 'P');
+        break;
+      case 'o':
+        handleControl(request, 'X');
+        break;
+              default:
+        handleNotFound(request);
+    }
+  }
+  else if (request->arg("query"))
+  {
+    char query = request->arg("query").c_str()[0];
+    switch (query)
+    {
+      case 'p':
+        if (game_over == 1)
+                {
+                  request->send(200, "text/plain", "over");
+                }
+                else
+                {
+                  request->send(200, "text/plain", "play");
+                }
+                break;
+      case 's':
+        request->send(200, "text/plain", String(score));
+        break;
+      default:
+        handleNotFound(request);
+    }
+  }
+  else
+  {
+    handleNotFound(request);
+  }
 }
 
 void webTask(void *params)
@@ -24,10 +164,7 @@ void webTask(void *params)
   Serial.println(xPortGetCoreID());
 
   // Set web server port number to 80
-  WiFiServer server(80);
-
-  // Variable to store the HTTP request
-  String header;
+  AsyncWebServer server(80);
 
   // Connect to Wi-Fi network with SSID and password
   Serial.print("Setting AP (Access Point)…");
@@ -38,206 +175,19 @@ void webTask(void *params)
   Serial.print("AP IP address: ");
   Serial.println(IP);
 
-  if (!LITTLEFS.begin()) {
-    Serial.println("LITTLEFS Mount Failed");
+  if (!LittleFS.begin()) {
+    Serial.println("LittleFS Mount Failed");
     return;
   }
 
+  server.on("/", handleRoot);
+  server.on("/test", handleTest);
+  server.on("/tetris", handleTetris);
+  server.onNotFound(handleNotFound);
   server.begin();
 
   for (;;)
   {
-    WiFiClient client = server.available(); // Listen for incoming clients
-
-    if (client)
-    { // If a new client connects,
-      Serial.println("New Client."); // print a message out in the serial port
-      String currentLine = "";       // make a String to hold incoming data from the client
-      while (client.connected())
-      { // loop while the client's connected
-        if (client.available())
-        { // if there's bytes to read from the client,
-          char c = client.read(); // read a byte, then
-          Serial.write(c);        // print it out the serial monitor
-          header += c;
-          if (c == '\n')
-          { // if the byte is a newline character
-            // if the current line is blank, you got two newline characters in a row.
-            // that's the end of the client HTTP request, so send a response:
-            if (currentLine.length() == 0)
-            {
-              // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
-              // and a content-type so the client knows what's coming, then a blank line:
-              client.println("HTTP/1.1 200 OK");
-              client.println("Content-type:text/html");
-              client.println("Connection: close");
-              client.println();
-
-
-              if (header.indexOf("GET /left") >= 0)
-              {
-                Serial.println("Move left button");
-                command = 'L';
-                xQueueSend(commandQ, &command, portMAX_DELAY);
-                sendOK(client);
-              }
-              else if (header.indexOf("GET /right") >= 0)
-              {
-                Serial.println("Move right button");
-                command = 'R';
-                xQueueSend(commandQ, &command, portMAX_DELAY);
-                sendOK(client);
-
-              }
-              else if (header.indexOf("GET /rotateleft") >= 0)
-              {
-                Serial.println("Rotate left button");
-                command = 'l';
-                xQueueSend(commandQ, &command, portMAX_DELAY);
-                sendOK(client);
-
-              }
-              else if (header.indexOf("GET /rotateright") >= 0)
-              {
-                Serial.println("Rotate right button");
-                command = 'r';
-                xQueueSend(commandQ, &command, portMAX_DELAY);
-                sendOK(client);
-
-              }
-              else if (header.indexOf("GET /giveup") >= 0)
-              {
-                Serial.println("Exit button");
-                command = 'X';
-                xQueueSend(commandQ, &command, portMAX_DELAY);
-                sendOK(client);
-
-              }
-              else if (header.indexOf("GET /play") >= 0)
-              {
-                Serial.println("Play button");
-                command = 'P';
-                xQueueSend(commandQ, &command, portMAX_DELAY);
-                sendOK(client);
-
-              }
-              else if (header.indexOf("GET /drop") >= 0)
-              {
-                Serial.println("Down button");
-                command = 'D';
-                xQueueSend(commandQ, &command, portMAX_DELAY);
-                sendOK(client);
-
-              }
-              else if (header.indexOf("GET /status") >= 0)
-              {
-                Serial.println("Status");
-                if (game_over == 1)
-                {
-                  sendAPI(client, "over");
-                }
-                else
-                {
-                  sendAPI(client, "play");
-                }
-              }
-              else if (header.indexOf("GET /score") >= 0)
-              {
-                Serial.println("Score");
-                client.print(score);
-                client.println();
-                client.println();
-              }
-              else
-              {
-
-                /*// Display the HTML web page
-                  client.println("<!DOCTYPE html><html>");
-                  client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-                  client.println("<link rel=\"icon\" href=\"data:,\">");
-                  // CSS to style the on/off buttons
-                  // Feel free to change the background-color and font-size attributes to fit your preferences
-                  client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
-                  client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;");
-                  client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
-                  client.println(".button2 {background-color: #555555;}</style></head>");
-
-                  // Web Page Heading
-                  client.println("<body><h1>TechJam Tetris</h1>");
-                  client.print("<h2>Score : ");
-                  client.print(score);
-                  client.println("</h2>");
-
-                  if (game_over == 0)
-                  {
-                  client.println("<p>");
-                  client.println("<a href=\"/giveup\"><button class=\"button\">Stop &#9632</button></a>");
-                  client.println("</p>");
-                  client.println("<p>");
-                  client.println("<a href=\"/left\"><button class=\"button\">&#8678</button></a>");
-                  client.println("<a href=\"/right\"><button class=\"button\">&#8680</button></a>");
-                  client.println("</p>");
-                  client.println("<p>");
-                  client.println("<a href=\"/drop\"><button class=\"button\">&#8681</button></a>");
-                  client.println("</p>");
-                  client.println("<p>");
-                  client.println("<a href=\"/rotateleft\"><button class=\"button\">&#8630</button></a>");
-                  client.println("<a href=\"/rotateright\"><button class=\"button\">&#8631</button></a>");
-                  client.println("</p>");
-                  }
-                  else
-                  {
-                  client.println("<p>");
-                  client.println("<h2>GAME OVER</h2>");
-                  client.println("</p>");
-                  client.println("<p>");
-                  client.println("<a href=\"/play\"><button class=\"button\">Play &#9654</button></a>");
-                  client.println("</p>");
-                  }
-                  client.println("<script>");
-                  client.println("function api(msg){</body></html>");
-
-                  // The HTTP response ends with another blank line
-                  client.println();
-                  // Break out of the while loop */
-
-                String dataType = "text/html";
-                File dataFile = LITTLEFS.open("/index.html");
-                if (!dataFile)
-                {
-                  client.println("Index.html not found");
-                  client.println("");
-                }
-                else
-                {
-                  
-                  server.streamFile(dataFile, dataType);
-                }
-                dataFile.close();
-                break;
-              }
-            }
-            else
-            { // if you got a newline, then clear currentLine
-              currentLine = "";
-            }
-          }
-          else if (c != '\r')
-          { // if you got anything else but a carriage return character,
-            currentLine += c; // add it to the end of the currentLine
-          }
-        } else {
-          vTaskDelay(10);
-        }
-      }
-      // Clear the header variable
-      header = "";
-      // Close the connection
-      client.stop();
-      Serial.println("Client disconnected.");
-      Serial.println("");
-    } else {
-      vTaskDelay(10);
-    }
+         vTaskDelay(1000);
   }
 }

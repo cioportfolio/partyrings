@@ -26,57 +26,52 @@
 
 <body>
     <h1>TechJam Tetris</h1>
-    <h2>Score : <span id="score"></span>span</h2>
-    <div id="playing" style="display: none">
+    <h2>Score : <span id="score">0</span></h2>
+    <div id="playing" style="display: none;">
         <p>
-            <button class="button" onclick="sendAPI('left');">&#8678</button>
-            <button class="button" onclick="sendAPI('right');">&#8680</button>
+            <button class="button" onclick="sendAPI('move','left');">&#8678</button>
+            <button class="button" onclick="sendAPI('move','right');">&#8680</button>
         </p>
         <p>
-            <button class="button" onclick="sendAPI('rotateleft');">&#8630</button>
-            <button class="button" onclick="sendAPI('rotateright');">&#8631</button>
+            <button class="button" onclick="sendAPI('rotate','left');">&#8630</button>
+            <button class="button" onclick="sendAPI('rotate','right');">&#8631</button>
         </p>
         <p>
-            <button class="button" onclick="sendAPI('drop');">&#8681</button>
+            <button class="button" onclick="sendAPI('move','drop');">&#8681</button>
         </p>
         <p>
-            <button class="button" onclick="sendAPI('giveup');">Stop &#9632</button>
+            <button class="button" onclick="sendAPI('game','over');">Stop &#9632</button>
         </p>
     </div>
     <div id="gameover">
-        <button class="button" onclick="sendAPI('play');">Play &#9654</button>
+        <button class="button" onclick="sendAPI('game','play');">Play &#9654</button>
     </div>
 
-
-
-
-
-
     <script>
-        function sendAPI(msg) {
-            fetch('/' + msg).then(r => r.text()).then(t => {
+        function sendAPI(name, value) {
+            fetch('/tetris?'+name+'=' + value).then(r => r.text()).then(t => {
                 console.log(t);
                 return;
             });
         }
 
         function checkScore() {
-            fetch("/score").then(r => r.text()).then(t => {
+            fetch("/tetris?query=score").then(r => r.text()).then(t => {
                 console.log(t);
-                document.querySelector("#score").innerHTML = t;
+                document.querySelector("#score").innerText = t;
                 return;
             });
         }
 
         function checkStatus() {
-            fetch("/status").then(r => r.text()).then(t => {
+            fetch("/tetris?query=progress").then(r => r.text()).then(t => {
                 console.log(t);
                 if (t == "play") {
                     document.querySelector("#playing").style.display = "block";
-                    document.querySelector("#playing").style.display = "none";
+                    document.querySelector("#gameover").style.display = "none";
                 } else {
                     document.querySelector("#playing").style.display = "none";
-                    document.querySelector("#playing").style.display = "block";
+                    document.querySelector("#gameover").style.display = "block";
                 }
                 return;
             });
@@ -89,40 +84,3 @@
 </body>
 
 </html>
-
-
-
-
-
-
-<a href="/giveup"><button class="button">Stop &#9632</button></a>
-
-
-
-
-
-
-
-
-client.println("</p>");
-client.println("<p>");
-    client.println("<a href=\"/left\"><button class=\"button\">&#8678</button></a>");
-    client.println("<a href=\"/right\"><button class=\"button\">&#8680</button></a>");
-    client.println("</p>");
-client.println("<p>");
-    client.println("<a href=\"/drop\"><button class=\"button\">&#8681</button></a>");
-    client.println("</p>");
-client.println("<p>");
-    client.println("<a href=\"/rotateleft\"><button class=\"button\">&#8630</button></a>");
-    client.println("<a href=\"/rotateright\"><button class=\"button\">&#8631</button></a>");
-    client.println("</p>");
-}
-else
-{
-client.println("<p>");
-    client.println("
-<h2>GAME OVER</h2>");
-client.println("</p>");
-client.println("<p>");
-    client.println("<a href=\"/play\"><button class=\"button\"></button></a>");
-    client.println("</p>");
