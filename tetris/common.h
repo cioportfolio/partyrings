@@ -5,6 +5,7 @@
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <ESPmDNS.h>
 
 #define MAX_COMMANDS 5
 enum action_t {moveLeft, moveRight, moveDown, rotateLeft, rotateRight, gamePlay, gameStop, paintPixel, screenFill, screenImage, screenBrightness};

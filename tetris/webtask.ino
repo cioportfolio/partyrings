@@ -1,46 +1,57 @@
 #include "common.h"
-#include <WiFi.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
 #include "FS.h"
 #include <LittleFS.h>
 
 void handleNotFound(AsyncWebServerRequest *request)
 {
-  String message = "File Not Found\n\n";
-  message += "URI: ";
-  message += request->url();
-  message += "\nMethod: ";
-  message += (request->method() == HTTP_GET) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += request->args();
-  message += "\n";
-
-  for (uint8_t i = 0; i < request->args(); i++)
+  if (request->method() == HTTP_OPTIONS)
   {
-    message += " " + request->argName(i) + ": " + request->arg(i) + "\n";
+    request->send(200);
   }
+  else
+  {
+    String message = "File Not Found\n\n";
+    message += "URI: ";
+    message += request->url();
+    message += "\nMethod: ";
+    message += (request->method() == HTTP_GET) ? "GET" : "POST";
+    message += "\nArguments: ";
+    message += request->args();
+    message += "\n";
 
-  request->send(404, "text/plain", message);
+    for (uint8_t i = 0; i < request->args(); i++)
+    {
+      message += " " + request->argName(i) + ": " + request->arg(i) + "\n";
+    }
+
+    request->send(404, "text/plain", message);
+  }
 }
 
 void handleTest(AsyncWebServerRequest *request)
 {
-  String message = "Test OK\n\n";
-  message += "URI: ";
-  message += request->url();
-  message += "\nMethod: ";
-  message += (request->method() == HTTP_GET) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += request->args();
-  message += "\n";
-
-  for (uint8_t i = 0; i < request->args(); i++)
+  if (request->method() == HTTP_OPTIONS)
   {
-    message += " " + request->argName(i) + ": " + request->arg(i) + "\n";
+    request->send(200);
   }
+  else
+  {
+    String message = "Test OK\n\n";
+    message += "URI: ";
+    message += request->url();
+    message += "\nMethod: ";
+    message += (request->method() == HTTP_GET) ? "GET" : "POST";
+    message += "\nArguments: ";
+    message += request->args();
+    message += "\n";
 
-  request->send(200, "text/plain", message);
+    for (uint8_t i = 0; i < request->args(); i++)
+    {
+      message += " " + request->argName(i) + ": " + request->arg(i) + "\n";
+    }
+
+    request->send(200, "text/plain", message);
+  }
 }
 
 bool loadFromLittleFS(AsyncWebServerRequest *request, String path)
@@ -76,7 +87,14 @@ bool loadFromLittleFS(AsyncWebServerRequest *request, String path)
 
 void handleRoot(AsyncWebServerRequest *request)
 {
-  loadFromLittleFS(request, "/index.html");
+  if (request->method() == HTTP_OPTIONS)
+  {
+    request->send(200);
+  }
+  else
+  {
+    loadFromLittleFS(request, "/index.html");
+  }
 }
 
 void handleControl(AsyncWebServerRequest *request, const action_t a)
@@ -88,130 +106,151 @@ void handleControl(AsyncWebServerRequest *request, const action_t a)
 
 void handleTetris(AsyncWebServerRequest *request)
 {
-  if (request->hasArg("move"))
+  if (request->method() == HTTP_OPTIONS)
   {
-    char direction = request->arg("move").c_str()[0];
-    switch (direction)
-    {
-    case 'l':
-      handleControl(request, moveLeft);
-      break;
-    case 'r':
-      handleControl(request, moveRight);
-      break;
-    case 'd':
-      handleControl(request, moveDown);
-      break;
-    default:
-      handleNotFound(request);
-    }
-  }
-  else if (request->hasArg("rotate"))
-  {
-    char direction = request->arg("rotate").c_str()[0];
-    switch (direction)
-    {
-    case 'l':
-      handleControl(request, rotateLeft);
-      break;
-    case 'r':
-      handleControl(request, rotateRight);
-      break;
-    default:
-      handleNotFound(request);
-    }
-  }
-  else if (request->hasArg("game"))
-  {
-    char command = request->arg("game").c_str()[0];
-    switch (command)
-    {
-    case 'p':
-      handleControl(request, gamePlay);
-      break;
-    case 'o':
-      handleControl(request, gameStop);
-      break;
-    default:
-      handleNotFound(request);
-    }
-  }
-  else if (request->arg("query"))
-  {
-    char query = request->arg("query").c_str()[0];
-    switch (query)
-    {
-    case 'p':
-      if (game_over == 1)
-      {
-        request->send(200, "text/plain", "over");
-      }
-      else
-      {
-        request->send(200, "text/plain", "play");
-      }
-      break;
-    case 's':
-      request->send(200, "text/plain", String(score));
-      break;
-    default:
-      handleNotFound(request);
-    }
+    request->send(200);
   }
   else
   {
-    handleNotFound(request);
+    if (request->hasArg("move"))
+    {
+      char direction = request->arg("move").c_str()[0];
+      switch (direction)
+      {
+      case 'l':
+        handleControl(request, moveLeft);
+        break;
+      case 'r':
+        handleControl(request, moveRight);
+        break;
+      case 'd':
+        handleControl(request, moveDown);
+        break;
+      default:
+        handleNotFound(request);
+      }
+    }
+    else if (request->hasArg("rotate"))
+    {
+      char direction = request->arg("rotate").c_str()[0];
+      switch (direction)
+      {
+      case 'l':
+        handleControl(request, rotateLeft);
+        break;
+      case 'r':
+        handleControl(request, rotateRight);
+        break;
+      default:
+        handleNotFound(request);
+      }
+    }
+    else if (request->hasArg("game"))
+    {
+      char command = request->arg("game").c_str()[0];
+      switch (command)
+      {
+      case 'p':
+        handleControl(request, gamePlay);
+        break;
+      case 'o':
+        handleControl(request, gameStop);
+        break;
+      default:
+        handleNotFound(request);
+      }
+    }
+    else if (request->arg("query"))
+    {
+      char query = request->arg("query").c_str()[0];
+      switch (query)
+      {
+      case 'p':
+        if (game_over == 1)
+        {
+          request->send(200, "text/plain", "over");
+        }
+        else
+        {
+          request->send(200, "text/plain", "play");
+        }
+        break;
+      case 's':
+        request->send(200, "text/plain", String(score));
+        break;
+      default:
+        handleNotFound(request);
+      }
+    }
+    else
+    {
+      handleNotFound(request);
+    }
   }
 }
 
 void handlePixel(AsyncWebServerRequest *request)
 {
-  if (game_over == 1)
+  if (request->method() == HTTP_OPTIONS)
   {
-    uint8_t x = request->arg("x").toInt();
-    uint8_t y = request->arg("y").toInt();
-    uint8_t r = request->arg("r").toInt();
-    uint8_t g = request->arg("g").toInt();
-    uint8_t b = request->arg("b").toInt();
-    command_t c = {paintPixel, x, y, r, g, b};
-    request->send(200, "text/plain", "OK\n");
-    xQueueSend(commandQ, &c, portMAX_DELAY);
+    request->send(200);
   }
   else
   {
-    request->send(409, "text/plain", "Cannot paint pixels while game is in progress\n");
+    if (game_over == 1)
+    {
+      uint8_t x = request->arg("x").toInt();
+      uint8_t y = request->arg("y").toInt();
+      uint8_t r = request->arg("r").toInt();
+      uint8_t g = request->arg("g").toInt();
+      uint8_t b = request->arg("b").toInt();
+      command_t c = {paintPixel, x, y, r, g, b};
+      request->send(200, "text/plain", "OK\n");
+      xQueueSend(commandQ, &c, portMAX_DELAY);
+    }
+    else
+    {
+      request->send(409, "text/plain", "Cannot paint pixels while game is in progress\n");
+    }
   }
 }
 
 void handleScreen(AsyncWebServerRequest *request)
 {
-  if (request->hasArg("brightness"))
+  if (request->method() == HTTP_OPTIONS)
   {
-    uint8_t b = request->arg("brightness").toInt();
-    command_t c = {screenBrightness, 0, 0, 0, 0, b};
-    request->send(200, "text/plain", "OK\n");
-    xQueueSend(commandQ, &c, portMAX_DELAY);
-  }
-  else if (game_over == 1)
-  {
-    if (request->hasArg("image")) {
-      String i = request->arg("image");
-      request->send(409, "text/plain", "Image fill not supported yet. Use /pixel?x=...&y=... to paint individual pixels\n");
-    }
-    else
-    {
-      uint8_t r = request->arg("r").toInt();
-      uint8_t g = request->arg("g").toInt();
-      uint8_t b = request->arg("b").toInt();
-      command_t c = {screenFill, 0, 0, r, g, b};
-      request->send(200, "text/plain", "OK\n");
-      xQueueSend(commandQ, &c, portMAX_DELAY);
-    }
-
+    request->send(200);
   }
   else
   {
-    request->send(409, "text/plain", "Cannot fill screen while game is in progress\n");
+    if (request->hasArg("brightness"))
+    {
+      uint8_t b = request->arg("brightness").toInt();
+      command_t c = {screenBrightness, 0, 0, 0, 0, b};
+      request->send(200, "text/plain", "OK\n");
+      xQueueSend(commandQ, &c, portMAX_DELAY);
+    }
+    else if (game_over == 1)
+    {
+      if (request->hasArg("image"))
+      {
+        String i = request->arg("image");
+        request->send(409, "text/plain", "Image fill not supported yet. Use /pixel?x=...&y=... to paint individual pixels\n");
+      }
+      else
+      {
+        uint8_t r = request->arg("r").toInt();
+        uint8_t g = request->arg("g").toInt();
+        uint8_t b = request->arg("b").toInt();
+        command_t c = {screenFill, 0, 0, r, g, b};
+        request->send(200, "text/plain", "OK\n");
+        xQueueSend(commandQ, &c, portMAX_DELAY);
+      }
+    }
+    else
+    {
+      request->send(409, "text/plain", "Cannot fill screen while game is in progress\n");
+    }
   }
 }
 
@@ -232,6 +271,12 @@ void webTask(void *params)
   Serial.print("AP IP address: ");
   Serial.println(IP);
 
+  // Activate mDNS this is used to be able to connect to the server
+  // with local DNS hostmane esp8266.local
+  if (MDNS.begin("leds")) {
+    Serial.println("MDNS responder started");
+  }
+  
   if (!LittleFS.begin())
   {
     Serial.println("LittleFS Mount Failed");
@@ -244,6 +289,9 @@ void webTask(void *params)
   server.on("/pixel", handlePixel);
   server.on("/screen", handleScreen);
   server.onNotFound(handleNotFound);
+
+  // Alow cross-origin requests
+  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
   server.begin();
 
   for (;;)
