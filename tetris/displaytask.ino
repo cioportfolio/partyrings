@@ -295,6 +295,11 @@ void handle_controls()
         FastLED.setBrightness(brightness);
         break;
         
+      case screenImage:
+        xQueueReceive(frameQ, leds, portMAX_DELAY);
+        repaint = 1;
+        break;
+
       default:
         break;
     }

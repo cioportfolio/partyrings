@@ -17,8 +17,13 @@ typedef struct {
   uint8_t g;
   uint8_t b;
 } command_t ;
+
 volatile uint16_t score = 0;
 volatile uint8_t game_over = 1;
+
 QueueHandle_t commandQ;
+QueueHandle_t frameQ;
+
+#define NUM_LEDS (kMatrixWidth * kMatrixHeight)
 
 #endif

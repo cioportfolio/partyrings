@@ -215,6 +215,8 @@ void handlePixel(AsyncWebServerRequest *request)
   }
 }
 
+uint8_t imageBuf[NUM_LEDS*3];
+
 void handleScreen(AsyncWebServerRequest *request)
 {
   if (request->method() == HTTP_OPTIONS)
@@ -235,7 +237,23 @@ void handleScreen(AsyncWebServerRequest *request)
       if (request->hasArg("image"))
       {
         String i = request->arg("image");
-        request->send(409, "text/plain", "Image fill not supported yet. Use /pixel?x=...&y=... to paint individual pixels\n");
+        int sPtr = 0;
+        int aPtr = 0;
+        command_t c = {screenImage, 0, 0, 0, 0, 0};
+
+        request->send(200, "text/plain", "OK\n");
+        while (sPtr < i.length() && aPtr < NUM_LEDS*3)
+        {
+          imageBuf[aPtr] = strtoul(i.substring(sPtr, sPtr+2).c_str(),NULL,16);
+          sPtr+=2;
+          aPtr++;
+        }
+        for (; aPtr < NUM_LEDS*3; aPtr++)
+        {
+          imageBuf[aPtr]=0;
+        }
+        xQueueSend(commandQ, &c, portMAX_DELAY);
+        xQueueSend(frameQ, imageBuf, portMAX_DELAY);
       }
       else
       {

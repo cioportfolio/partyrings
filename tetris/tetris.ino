@@ -28,6 +28,12 @@ void setup()
     Serial.println("Could not create command queue");
   }
 
+  frameQ = xQueueCreate(1, NUM_LEDS*3);
+  if (frameQ == NULL)
+  {
+    Serial.println("Could not create frame queue");
+  }
+
   xTaskCreatePinnedToCore(displayTask, "DISPLAY", 10240, &params, 10, &displayHandle, 1);
   xTaskCreatePinnedToCore(webTask, "WEB", 10240, &params, 5, &webHandle, 0);
 }

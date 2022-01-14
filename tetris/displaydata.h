@@ -72,6 +72,5 @@ uint8_t pixels[45][2] = {
     {2, 1},
     {2, 2}};
 
-#define NUM_LEDS (kMatrixWidth * kMatrixHeight)
 CRGB leds_plus_safety_pixel[NUM_LEDS + 1];
 CRGB *const leds(leds_plus_safety_pixel + 1);
