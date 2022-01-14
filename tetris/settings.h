@@ -1,5 +1,5 @@
-#ifndef SETTINGS
-#define SETTINGS settings
+#ifndef __SETTINGS__
+#define __SETTINGS__
 
 #define BRIGHTNESS 64
 #define LED_PIN 5

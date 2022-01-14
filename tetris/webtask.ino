@@ -5,8 +5,8 @@
 #include "FS.h"
 #include <LittleFS.h>
 
-
-void handleNotFound(AsyncWebServerRequest *request) {
+void handleNotFound(AsyncWebServerRequest *request)
+{
   String message = "File Not Found\n\n";
   message += "URI: ";
   message += request->url();
@@ -15,15 +15,17 @@ void handleNotFound(AsyncWebServerRequest *request) {
   message += "\nArguments: ";
   message += request->args();
   message += "\n";
- 
-  for (uint8_t i = 0; i < request->args(); i++) {
+
+  for (uint8_t i = 0; i < request->args(); i++)
+  {
     message += " " + request->argName(i) + ": " + request->arg(i) + "\n";
   }
- 
+
   request->send(404, "text/plain", message);
 }
 
-void handleTest(AsyncWebServerRequest *request) {
+void handleTest(AsyncWebServerRequest *request)
+{
   String message = "Test OK\n\n";
   message += "URI: ";
   message += request->url();
@@ -32,70 +34,76 @@ void handleTest(AsyncWebServerRequest *request) {
   message += "\nArguments: ";
   message += request->args();
   message += "\n";
- 
-  for (uint8_t i = 0; i < request->args(); i++) {
+
+  for (uint8_t i = 0; i < request->args(); i++)
+  {
     message += " " + request->argName(i) + ": " + request->arg(i) + "\n";
   }
- 
+
   request->send(200, "text/plain", message);
 }
 
-bool loadFromLittleFS(AsyncWebServerRequest *request, String path) {
+bool loadFromLittleFS(AsyncWebServerRequest *request, String path)
+{
   String dataType = "text/html";
- 
+
   Serial.print("Requested page -> ");
   Serial.println(path);
-  if (LittleFS.exists(path)){
-      File dataFile = LittleFS.open(path, "r");
-      if (!dataFile) {
-          handleNotFound(request);
-          return false;
-      }
- 
-        AsyncWebServerResponse *response = request->beginResponse(LittleFS, path, dataType);
-        Serial.print("Real file path: ");
-        Serial.println(path);
- 
-        request->send(response);
- 
- 
-      dataFile.close();
-  }else{
+  if (LittleFS.exists(path))
+  {
+    File dataFile = LittleFS.open(path, "r");
+    if (!dataFile)
+    {
       handleNotFound(request);
       return false;
+    }
+
+    AsyncWebServerResponse *response = request->beginResponse(LittleFS, path, dataType);
+    Serial.print("Real file path: ");
+    Serial.println(path);
+
+    request->send(response);
+
+    dataFile.close();
+  }
+  else
+  {
+    handleNotFound(request);
+    return false;
   }
   return true;
 }
- 
- 
-void handleRoot(AsyncWebServerRequest *request) {
-    loadFromLittleFS(request, "/index.html");
+
+void handleRoot(AsyncWebServerRequest *request)
+{
+  loadFromLittleFS(request, "/index.html");
 }
 
-void handleControl(AsyncWebServerRequest *request, const char c)
+void handleControl(AsyncWebServerRequest *request, const action_t a)
 {
-                  xQueueSend(commandQ, &c, portMAX_DELAY);
-                request->send(200,"OK");
+  command_t c = {a};
+  request->send(200, "text/plain", "OK\n");
+  xQueueSend(commandQ, &c, portMAX_DELAY);
 }
 
 void handleTetris(AsyncWebServerRequest *request)
-{ 
+{
   if (request->hasArg("move"))
   {
     char direction = request->arg("move").c_str()[0];
     switch (direction)
     {
-      case 'l':
-        handleControl(request, 'L');
-        break;
-      case 'r':
-        handleControl(request, 'R');
-        break;
-      case 'd':
-        handleControl(request, 'D');
-        break;
-      default:
-        handleNotFound(request);
+    case 'l':
+      handleControl(request, moveLeft);
+      break;
+    case 'r':
+      handleControl(request, moveRight);
+      break;
+    case 'd':
+      handleControl(request, moveDown);
+      break;
+    default:
+      handleNotFound(request);
     }
   }
   else if (request->hasArg("rotate"))
@@ -103,29 +111,29 @@ void handleTetris(AsyncWebServerRequest *request)
     char direction = request->arg("rotate").c_str()[0];
     switch (direction)
     {
-      case 'l':
-        handleControl(request, 'l');
-        break;
-      case 'r':
-        handleControl(request, 'r');
-        break;
-      default:
-        handleNotFound(request);
+    case 'l':
+      handleControl(request, rotateLeft);
+      break;
+    case 'r':
+      handleControl(request, rotateRight);
+      break;
+    default:
+      handleNotFound(request);
     }
   }
-  else  if (request->hasArg("game"))
+  else if (request->hasArg("game"))
   {
     char command = request->arg("game").c_str()[0];
     switch (command)
     {
-      case 'p':
-        handleControl(request, 'P');
-        break;
-      case 'o':
-        handleControl(request, 'X');
-        break;
-              default:
-        handleNotFound(request);
+    case 'p':
+      handleControl(request, gamePlay);
+      break;
+    case 'o':
+      handleControl(request, gameStop);
+      break;
+    default:
+      handleNotFound(request);
     }
   }
   else if (request->arg("query"))
@@ -133,21 +141,21 @@ void handleTetris(AsyncWebServerRequest *request)
     char query = request->arg("query").c_str()[0];
     switch (query)
     {
-      case 'p':
-        if (game_over == 1)
-                {
-                  request->send(200, "text/plain", "over");
-                }
-                else
-                {
-                  request->send(200, "text/plain", "play");
-                }
-                break;
-      case 's':
-        request->send(200, "text/plain", String(score));
-        break;
-      default:
-        handleNotFound(request);
+    case 'p':
+      if (game_over == 1)
+      {
+        request->send(200, "text/plain", "over");
+      }
+      else
+      {
+        request->send(200, "text/plain", "play");
+      }
+      break;
+    case 's':
+      request->send(200, "text/plain", String(score));
+      break;
+    default:
+      handleNotFound(request);
     }
   }
   else
@@ -156,10 +164,59 @@ void handleTetris(AsyncWebServerRequest *request)
   }
 }
 
+void handlePixel(AsyncWebServerRequest *request)
+{
+  if (game_over == 1)
+  {
+    uint8_t x = request->arg("x").toInt();
+    uint8_t y = request->arg("y").toInt();
+    uint8_t r = request->arg("r").toInt();
+    uint8_t g = request->arg("g").toInt();
+    uint8_t b = request->arg("b").toInt();
+    command_t c = {paintPixel, x, y, r, g, b};
+    request->send(200, "text/plain", "OK\n");
+    xQueueSend(commandQ, &c, portMAX_DELAY);
+  }
+  else
+  {
+    request->send(409, "text/plain", "Cannot paint pixels while game is in progress\n");
+  }
+}
+
+void handleScreen(AsyncWebServerRequest *request)
+{
+  if (request->hasArg("brightness"))
+  {
+    uint8_t b = request->arg("brightness").toInt();
+    command_t c = {screenBrightness, 0, 0, 0, 0, b};
+    request->send(200, "text/plain", "OK\n");
+    xQueueSend(commandQ, &c, portMAX_DELAY);
+  }
+  else if (game_over == 1)
+  {
+    if (request->hasArg("image")) {
+      String i = request->arg("image");
+      request->send(409, "text/plain", "Image fill not supported yet. Use /pixel?x=...&y=... to paint individual pixels\n");
+    }
+    else
+    {
+      uint8_t r = request->arg("r").toInt();
+      uint8_t g = request->arg("g").toInt();
+      uint8_t b = request->arg("b").toInt();
+      command_t c = {screenFill, 0, 0, r, g, b};
+      request->send(200, "text/plain", "OK\n");
+      xQueueSend(commandQ, &c, portMAX_DELAY);
+    }
+
+  }
+  else
+  {
+    request->send(409, "text/plain", "Cannot fill screen while game is in progress\n");
+  }
+}
+
 void webTask(void *params)
 {
-  char command = ' ';
-
   Serial.print("Web task on core ");
   Serial.println(xPortGetCoreID());
 
@@ -175,7 +232,8 @@ void webTask(void *params)
   Serial.print("AP IP address: ");
   Serial.println(IP);
 
-  if (!LittleFS.begin()) {
+  if (!LittleFS.begin())
+  {
     Serial.println("LittleFS Mount Failed");
     return;
   }
@@ -183,11 +241,13 @@ void webTask(void *params)
   server.on("/", handleRoot);
   server.on("/test", handleTest);
   server.on("/tetris", handleTetris);
+  server.on("/pixel", handlePixel);
+  server.on("/screen", handleScreen);
   server.onNotFound(handleNotFound);
   server.begin();
 
   for (;;)
   {
-         vTaskDelay(1000);
+    vTaskDelay(1000);
   }
 }

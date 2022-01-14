@@ -1,6 +1,3 @@
-#include <WiFi.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
 #include "common.h"
 
 /*
@@ -25,7 +22,7 @@ void setup()
 
   Serial.begin(115200);
 
-  commandQ = xQueueCreate(MAX_COMMANDS, BYTES_PER_COMMAND);
+  commandQ = xQueueCreate(MAX_COMMANDS, sizeof(command_t));
   if (commandQ == NULL)
   {
     Serial.println("Could not create command queue");

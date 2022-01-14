@@ -14,6 +14,7 @@ uint8_t collapse = 0;
 uint8_t coll_row_l, coll_row_h;
 uint8_t drop = 0;
 uint8_t flash = 0;
+uint8_t brightness = BRIGHTNESS;
 
 uint16_t XY(uint8_t x, uint8_t y)
 {
@@ -203,30 +204,47 @@ void reset_game()
   next_block();
 }
 
+void printCommand(command_t *c)
+{
+  Serial.print("Command :");
+  Serial.print(c->action);
+  Serial.print(" x=");
+  Serial.print(c->x);
+  Serial.print(" y=");
+  Serial.print(c->y);
+  Serial.print(" r=");
+  Serial.print(c->r);
+  Serial.print(" g=");
+  Serial.print(c->g);
+  Serial.print(" b=");
+  Serial.println(c->b);
+}
+
 void handle_controls()
 {
 
-  char command = ' ';
+  command_t command;
+  uint8_t repaint = 0;
 
-  while (uxQueueMessagesWaiting(commandQ) > 0) {
+  while (uxQueueMessagesWaiting(commandQ) > 0)
+  {
     xQueueReceive(commandQ, &command, portMAX_DELAY);
-    Serial.print("Command : ");
-    Serial.println(command);
-    switch (command)
+    printCommand(&command);
+    switch (command.action)
     {
-      case 'L':
+      case moveLeft:
         if (blockX > 0)
           if (if_coll(blockX - 1, blockY, blockR) == 0)
             blockX--;
         break;
 
-      case 'R':
+      case moveRight:
         if (blockX + 1 < kMatrixWidth)
           if (if_coll(blockX + 1, blockY, blockR) == 0)
             blockX++;
         break;
 
-      case 'l':
+      case rotateLeft:
         /*      Serial.print("R : ");
               Serial.print(blockR);
               Serial.print(" R-1: ");
@@ -237,7 +255,7 @@ void handle_controls()
           blockR = (blockR - 1) & 3;
         break;
 
-      case 'r':
+      case rotateRight:
         /*      Serial.print("R : ");
               Serial.print(blockR);
               Serial.print(" R+1: ");
@@ -247,22 +265,43 @@ void handle_controls()
           blockR = (blockR + 1) & 3;
         break;
 
-      case 'D':
+      case moveDown:
         drop = 1;
         break;
 
-      case 'X':
+      case gameStop:
         game_over = 1;
         break;
 
-      case 'P':
+      case gamePlay:
         reset_game();
         game_over = 0;
         break;
-
+        
+      case paintPixel:
+        leds[XYsafe(command.x, command.y)] = CRGB(command.r,command.g, command.b);
+        repaint = 1;
+        break;
+        
+      case screenFill:
+        fill_solid( leds, NUM_LEDS, CRGB(command.r,command.g, command.b));
+        repaint = 1;
+        break;
+        
+      case screenBrightness:
+        brightness = scale8(BRIGHTNESS, command.b);
+        Serial.print("Bright=");
+        Serial.println(brightness);
+        FastLED.setBrightness(brightness);
+        break;
+        
       default:
         break;
     }
+  }
+  if (repaint == 1)
+  {
+    FastLED.show();
   }
 }
 
@@ -282,11 +321,11 @@ void displayTask(void *params)
 
     if (millis() < 5000)
     {
-      FastLED.setBrightness(scale8(BRIGHTNESS, (millis() * 256) / 5000));
+      FastLED.setBrightness(scale8(brightness, (millis() * 256) / 5000));
     }
     else
     {
-      FastLED.setBrightness(BRIGHTNESS);
+      FastLED.setBrightness(brightness);
     }
 
     handle_controls();
@@ -320,9 +359,13 @@ void displayTask(void *params)
             blockY++;
         }
       }
+      flash = 1 - flash;
+      genDisplay();
+      Refresh();
     }
-    flash = 1 - flash;
-    genDisplay();
-    Refresh();
+    else
+    {
+      vTaskDelay(10);
+    }
   }
 }
