@@ -2,6 +2,8 @@
 #include <FastLED.h>
 #include "displayData.h"
 
+#define GAMEWIDTH 10
+
 uint8_t buff[kMatrixHeight][kMatrixWidth];
 uint8_t blockX, blockY;
 uint8_t blockT = 0;
@@ -57,7 +59,7 @@ void next_block()
   if (blocks[blockT][blockR][1] > 2)
     blockY = 1;
 
-  uint8_t width = blocks[blockT][blockR][0];
+  /*uint8_t width = blocks[blockT][blockR][0];
   if (width == 1)
     blockX = random8(0, kMatrixWidth);
   else if (width == 2)
@@ -65,7 +67,8 @@ void next_block()
   else if (width == 3)
     blockX = random(1, kMatrixWidth - 1);
   else
-    blockX = random8(1, kMatrixWidth - 2);
+    blockX = random8(1, kMatrixWidth - 2); */
+  blockX = 5;
   game_over = if_coll(blockX, blockY, blockR);
 }
 
@@ -83,20 +86,21 @@ void genDisplay()
 {
   for (uint8_t y = 0; y < kMatrixHeight; y++)
   {
-    for (uint8_t x = 0; x < kMatrixWidth; x++)
+    for (uint8_t x = 0; x < GAMEWIDTH; x++)
     {
       if (collapse > 0 && y >= coll_row_l && y <= coll_row_h)
         leds[XYsafe(x, y)] = CHSV(0, 0, 90 * (1 + flash));
       else
         leds[XYsafe(x, y)] = CHSV(255 * y / kMatrixHeight, 255, buff[y][x]);
     }
+    leds[XYsafe(GAMEWIDTH, y)] = CHSV(0, 0, 32);
   }
   if (collapse == 0)
   {
     for (uint8_t i = 0; i < blocks[blockT][blockR][2]; i++)
     {
       uint8_t p = blocks[blockT][blockR][3] + i;
-      leds[XYsafe(blockX - 1 + pixels[p][0], blockY - 1 + pixels[p][1])] = CHSV(0, 0, 90 * (1 + blink_on));
+      leds[XYsafe(blockX - 1 + pixels[p][0], blockY - 1 + pixels[p][1])] = CRGB(blockCol[blockT][0]/(1 + 2*blink_on),blockCol[blockT][1]/(1 + 2*blink_on),blockCol[blockT][2]/(1 + 2*blink_on));
     }
   }
 }
@@ -121,7 +125,7 @@ uint8_t if_coll(uint8_t x, uint8_t y, uint8_t r)
       return 1;
     if (x + pixels[p][0] < 1)
       return 1;
-    if (x + pixels[p][0] > kMatrixWidth)
+    if (x + pixels[p][0] > GAMEWIDTH)
       return 1;
     if (buff[y - 1 + pixels[p][1]][x - 1 + pixels[p][0]] > 0)
       return 1;
@@ -152,8 +156,8 @@ void collide()
   drop = 0;
   for (uint8_t y = row_l; y <= row_h; y++)
   {
-    spaces = kMatrixWidth;
-    for (uint8_t x = 0; x < kMatrixWidth; x++)
+    spaces = GAMEWIDTH;
+    for (uint8_t x = 0; x < GAMEWIDTH; x++)
     {
       if (buff[y][x])
         spaces--;
@@ -239,7 +243,7 @@ void handle_controls()
         break;
 
       case moveRight:
-        if (blockX + 1 < kMatrixWidth)
+        if (blockX + 1 < GAMEWIDTH)
           if (if_coll(blockX + 1, blockY, blockR) == 0)
             blockX++;
         break;

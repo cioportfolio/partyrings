@@ -46,10 +46,22 @@
     <div id="gameover">
         <button class="button" onclick="sendAPI('game','play');">Play &#9654</button>
     </div>
+    <div>
+        <p><button class="button" onclick="setBrightness();">Set Brightness</button></p>
+        <p><input type="range" min="16" max="255" step="1" value="128" class="slider" id="brightness"></p>
+    </div>
 
     <script>
         function sendAPI(name, value) {
             fetch('/tetris?'+name+'=' + value).then(r => r.text()).then(t => {
+                console.log(t);
+                return;
+            });
+        }
+
+        function setBrightness() {
+            let name = document.querySelector("#brightness").value;
+            fetch('/screen?brightness=' + name).then(r => r.text()).then(t => {
                 console.log(t);
                 return;
             });

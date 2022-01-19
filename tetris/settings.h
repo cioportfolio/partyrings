@@ -9,7 +9,7 @@
 #define UPDATES_PER_SECOND 25
 #define UPDATES_PER_BLINK 12
 #define UPDATES_PER_COLLAPSE 25
-#define START_SPEED 20
+#define START_SPEED 30
 
 const char* ssid = "techjam";
 
