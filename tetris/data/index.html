@@ -20,6 +20,7 @@
             font-size: 30px;
             margin: 2px;
             cursor: pointer;
+            touch-action: manipulation;
         }
     </style>
 </head>
@@ -29,22 +30,22 @@
     <h2>Score : <span id="score">0</span></h2>
     <div id="playing" style="display: none;">
         <p>
-            <button class="button" onclick="sendAPI('move','left');">&#8678</button>
-            <button class="button" onclick="sendAPI('move','right');">&#8680</button>
+            <button class="button" onclick="sendAPI('L');">&#8678</button>
+            <button class="button" onclick="sendAPI('R');">&#8680</button>
         </p>
         <p>
-            <button class="button" onclick="sendAPI('rotate','left');">&#8630</button>
-            <button class="button" onclick="sendAPI('rotate','right');">&#8631</button>
+            <button class="button" onclick="sendAPI('l');">&#8630</button>
+            <button class="button" onclick="sendAPI('r');">&#8631</button>
         </p>
         <p>
-            <button class="button" onclick="sendAPI('move','drop');">&#8681</button>
+            <button class="button" onclick="sendAPI('D');">&#8681</button>
         </p>
         <p>
-            <button class="button" onclick="sendAPI('game','over');">Stop &#9632</button>
+            <button class="button" onclick="sendAPI('O');">Stop &#9632</button>
         </p>
     </div>
     <div id="gameover">
-        <button class="button" onclick="sendAPI('game','play');">Play &#9654</button>
+        <button class="button" onclick="sendAPI('P');">Play &#9654</button>
     </div>
     <div>
         <p><button class="button" onclick="setBrightness();">Set Brightness</button></p>
@@ -52,19 +53,36 @@
     </div>
 
     <script>
-        function sendAPI(name, value) {
-            fetch('/tetris?'+name+'=' + value).then(r => r.text()).then(t => {
-                console.log(t);
-                return;
-            });
+        ws = new WebSocket("ws://" + window.location.host + window.location.pathname + "ws");
+
+        ws.onmessage = event => {
+            switch (event.data[0]) {
+                case 'P': 
+                    document.querySelector("#playing").style.display = "block";
+                    document.querySelector("#gameover").style.display = "none";
+                    break;
+                case 'O': 
+                    document.querySelector("#playing").style.display = "none";
+                    document.querySelector("#gameover").style.display = "block";
+                    break;
+                default:
+                    document.querySelector("#score").innerText = event.data.charCodeAt(1);
+            }
+        }
+
+        function sendAPI(name) {
+            if (ws.readyState == WebSocket.OPEN) {
+                ws.send(name);
+            }
         }
 
         function setBrightness() {
-            let name = document.querySelector("#brightness").value;
-            fetch('/screen?brightness=' + name).then(r => r.text()).then(t => {
-                console.log(t);
-                return;
-            });
+            let m = new Uint8Array(2);
+            m[0] = 'B'.charCodeAt(0);
+            m[1] = parseInt(document.querySelector("#brightness").value);
+            if (ws.readyState == WebSocket.OPEN) {
+                ws.send(m);
+            }
         }
 
         function checkScore() {
@@ -89,8 +107,11 @@
             });
         }
 
-        window.setInterval(checkScore, 5000);
-        window.setInterval(checkStatus, 2000);
+        checkScore();
+        checkStatus();
+
+/*       window.setInterval(checkScore, 5000);
+        window.setInterval(checkStatus, 2000); */
 
     </script>
 </body>

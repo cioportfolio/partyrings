@@ -34,6 +34,17 @@ void setup()
     Serial.println("Could not create frame queue");
   }
 
+  scoreQ = xQueueCreate(5, 1);
+  if (scoreQ == NULL)
+  {
+    Serial.println("Could not create score queue");
+  }
+
+  statusQ = xQueueCreate(5, 1);
+  if (statusQ == NULL)
+  {
+    Serial.println("Could not create status queue");
+  }
   xTaskCreatePinnedToCore(displayTask, "DISPLAY", 10240, &params, 10, &displayHandle, 1);
   xTaskCreatePinnedToCore(webTask, "WEB", 10240, &params, 5, &webHandle, 0);
 }

@@ -272,13 +272,68 @@ void handleScreen(AsyncWebServerRequest *request)
   }
 }
 
+void wsHandler(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
+{
+  command_t c;
+  switch (type) {
+    case WS_EVT_CONNECT:
+      Serial.println("Websocket client connection received");
+      break;
+    case WS_EVT_DISCONNECT:
+      Serial.println("Client disconnected");
+      break;
+    case WS_EVT_DATA:
+      Serial.print("Socket data: ");
+      Serial.println((char)data[0]);
+      switch ((char)data[0]) {
+        case 'B':
+          c = {screenBrightness, 0, 0, 0, 0, data[1]};
+          xQueueSend(commandQ, &c, portMAX_DELAY);
+          break;
+        case 'L':
+          c = {moveLeft};
+          xQueueSend(commandQ, &c, portMAX_DELAY);
+          break;
+        case 'R':
+          c = {moveRight};
+          xQueueSend(commandQ, &c, portMAX_DELAY);
+          break;
+        case 'D':
+          c = {moveDown};
+          xQueueSend(commandQ, &c, portMAX_DELAY);
+          break;
+        case 'l':
+          c = {rotateLeft};
+          xQueueSend(commandQ, &c, portMAX_DELAY);
+          break;
+        case 'r':
+          c = {rotateRight};
+          xQueueSend(commandQ, &c, portMAX_DELAY);
+          break;
+        case 'P':
+          c = {gamePlay};
+          xQueueSend(commandQ, &c, portMAX_DELAY);
+          break;
+        case 'O':
+          c = {gameStop};
+          xQueueSend(commandQ, &c, portMAX_DELAY);
+          break;
+      }
+      break;
+  }
+}
+
 void webTask(void *params)
 {
+  uint8_t data;
+  char message[2];
+
   Serial.print("Web task on core ");
   Serial.println(xPortGetCoreID());
 
   // Set web server port number to 80
   AsyncWebServer server(80);
+  AsyncWebSocket ws("/ws");
 
   // Connect to Wi-Fi network with SSID and password
   Serial.print("Setting AP (Access Point)…");
@@ -307,6 +362,8 @@ void webTask(void *params)
   server.on("/pixel", handlePixel);
   server.on("/screen", handleScreen);
   server.onNotFound(handleNotFound);
+  ws.onEvent(wsHandler);
+  server.addHandler(&ws);
 
   // Alow cross-origin requests
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
@@ -314,6 +371,19 @@ void webTask(void *params)
 
   for (;;)
   {
-    vTaskDelay(1000);
+    vTaskDelay(10);
+    while (uxQueueMessagesWaiting(scoreQ)>0)
+    {
+      xQueueReceive(scoreQ, &data, portMAX_DELAY);
+      message[0] = 'S';
+      message[1] = (char)data;
+      ws.textAll(message, 2);
+    }
+    while (uxQueueMessagesWaiting(statusQ)>0)
+    {
+      xQueueReceive(statusQ, &data, portMAX_DELAY);
+      message[0] = (char)data;
+      ws.textAll(message, 2);
+    }
   }
 }

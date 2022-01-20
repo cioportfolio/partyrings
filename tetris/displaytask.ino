@@ -70,6 +70,11 @@ void next_block()
     blockX = random8(1, kMatrixWidth - 2); */
   blockX = 5;
   game_over = if_coll(blockX, blockY, blockR);
+  if (game_over == 1)
+  {
+    char c = 'O';
+    xQueueSend(statusQ, &c, portMAX_DELAY);
+  }
 }
 
 
@@ -190,6 +195,8 @@ void drop_row()
     }
   }
   score++;
+  uint8_t s = score;
+  xQueueSend(scoreQ, &s, portMAX_DELAY);
   if (step_speed > 1)
     step_speed--;
 }
@@ -204,6 +211,8 @@ void reset_game()
     }
   }
   score = 0;
+  uint8_t s = score;
+  xQueueSend(scoreQ, &s, portMAX_DELAY);
   step_speed = START_SPEED;
   next_block();
 }
@@ -232,6 +241,7 @@ void handle_controls()
 
   while (uxQueueMessagesWaiting(commandQ) > 0)
   {
+    char c;
     xQueueReceive(commandQ, &command, portMAX_DELAY);
     printCommand(&command);
     switch (command.action)
@@ -274,12 +284,16 @@ void handle_controls()
         break;
 
       case gameStop:
+        c = 'O';
         game_over = 1;
+        xQueueSend(statusQ, &c, portMAX_DELAY);
         break;
 
       case gamePlay:
         reset_game();
+        c = 'P';
         game_over = 0;
+        xQueueSend(statusQ, &c, portMAX_DELAY);
         break;
         
       case paintPixel:
