@@ -5,9 +5,9 @@
 #define GAMEWIDTH 10
 
 uint8_t buff[kMatrixHeight][kMatrixWidth];
-uint8_t blockX, blockY;
-uint8_t blockT = 0;
-uint8_t blockR = 0;
+uint8_t blockX[2], blockY[2];
+uint8_t blockT[2] = {0,0};
+uint8_t blockR[2] = {0,0};
 uint8_t blink_on = 1;
 uint8_t blink_count = 0;
 uint8_t step_speed = START_SPEED;
@@ -17,6 +17,7 @@ uint8_t coll_row_l, coll_row_h;
 uint8_t drop = 0;
 uint8_t flash = 0;
 uint8_t brightness = BRIGHTNESS;
+uint8_t nextBlock = 0;
 
 uint16_t XY(uint8_t x, uint8_t y)
 {
@@ -53,11 +54,11 @@ uint16_t XY(uint8_t x, uint8_t y)
 
 void next_block()
 {
-  blockT = random8(0, 6);
-  blockR = random8(0, 4);
-  blockY = 0;
-  if (blocks[blockT][blockR][1] > 2)
-    blockY = 1;
+  blockT[nextBlock] = random8(0, 6);
+  blockR[nextBlock] = random8(0, 4);
+  blockY[nextBlock] = 0;
+  if (blocks[blockT[nextBlock]][blockR[nextBlock]][1] > 2)
+    blockY[nextBlock] = 1;
 
   /*uint8_t width = blocks[blockT][blockR][0];
   if (width == 1)
@@ -68,8 +69,9 @@ void next_block()
     blockX = random(1, kMatrixWidth - 1);
   else
     blockX = random8(1, kMatrixWidth - 2); */
-  blockX = 5;
-  game_over = if_coll(blockX, blockY, blockR);
+  blockX[nextBlock] = 5;
+  nextBlock = 1 - nextBlock;
+  game_over = if_coll(blockX[nextBlock], blockY[nextBlock], blockR[nextBlock]);
   if (game_over == 1)
   {
     char c = 'O';
@@ -91,22 +93,28 @@ void genDisplay()
 {
   for (uint8_t y = 0; y < kMatrixHeight; y++)
   {
-    for (uint8_t x = 0; x < GAMEWIDTH; x++)
+    for (uint8_t x = 0; x < kMatrixWidth; x++)
     {
       if (collapse > 0 && y >= coll_row_l && y <= coll_row_h)
         leds[XYsafe(x, y)] = CHSV(0, 0, 90 * (1 + flash));
+      else if (x == GAMEWIDTH)
+        leds[XYsafe(GAMEWIDTH, y)] = CHSV(0, 0, 32);
       else
         leds[XYsafe(x, y)] = CHSV(255 * y / kMatrixHeight, 255, buff[y][x]);
     }
-    leds[XYsafe(GAMEWIDTH, y)] = CHSV(0, 0, 32);
   }
   if (collapse == 0)
   {
-    for (uint8_t i = 0; i < blocks[blockT][blockR][2]; i++)
+    for (uint8_t i = 0; i < blocks[blockT[nextBlock]][blockR[nextBlock]][2]; i++)
     {
-      uint8_t p = blocks[blockT][blockR][3] + i;
-      leds[XYsafe(blockX - 1 + pixels[p][0], blockY - 1 + pixels[p][1])] = CRGB(blockCol[blockT][0]/(1 + 2*blink_on),blockCol[blockT][1]/(1 + 2*blink_on),blockCol[blockT][2]/(1 + 2*blink_on));
+      uint8_t p = blocks[blockT[nextBlock]][blockR[nextBlock]][3] + i;
+      leds[XYsafe(blockX[nextBlock] - 1 + pixels[p][0], blockY[nextBlock] - 1 + pixels[p][1])] = CRGB(blockCol[blockT[nextBlock]][0]/(1 + 2*blink_on),blockCol[blockT[nextBlock]][1]/(1 + 2*blink_on),blockCol[blockT[nextBlock]][2]/(1 + 2*blink_on));
     }
+  }
+  for (uint8_t i = 0; i < blocks[blockT[1-nextBlock]][blockR[1-nextBlock]][2]; i++)
+  {
+    uint8_t p = blocks[blockT[1-nextBlock]][blockR[1-nextBlock]][3] + i;
+    leds[XYsafe(GAMEWIDTH + 1 + pixels[p][0], 4 + pixels[p][1])] = CRGB(blockCol[blockT[1-nextBlock]][0],blockCol[blockT[1-nextBlock]][1],blockCol[blockT[1-nextBlock]][2]);
   }
 }
 
@@ -122,9 +130,9 @@ void Refresh()
 
 uint8_t if_coll(uint8_t x, uint8_t y, uint8_t r)
 {
-  for (uint8_t i = 0; i < blocks[blockT][r][2]; i++)
+  for (uint8_t i = 0; i < blocks[blockT[nextBlock]][r][2]; i++)
   {
-    uint8_t p = blocks[blockT][r][3] + i;
+    uint8_t p = blocks[blockT[nextBlock]][r][3] + i;
 
     if (y + pixels[p][1] > kMatrixHeight)
       return 1;
@@ -147,16 +155,16 @@ void collide()
   coll_row_l = kMatrixHeight - 1;
   coll_row_h = 0;
 
-  for (uint8_t i = 0; i < blocks[blockT][blockR][2]; i++)
+  for (uint8_t i = 0; i < blocks[blockT[nextBlock]][blockR[nextBlock]][2]; i++)
   {
-    uint8_t p = blocks[blockT][blockR][3] + i;
-    uint8_t y = blockY - 1 + pixels[p][1];
+    uint8_t p = blocks[blockT[nextBlock]][blockR[nextBlock]][3] + i;
+    uint8_t y = blockY[nextBlock] - 1 + pixels[p][1];
 
     if (y < row_l)
       row_l = y;
     if (y > row_h)
       row_h = y;
-    buff[y][blockX - 1 + pixels[p][0]] = 255;
+    buff[y][blockX[nextBlock] - 1 + pixels[p][0]] = 255;
   }
   drop = 0;
   for (uint8_t y = row_l; y <= row_h; y++)
@@ -214,6 +222,13 @@ void reset_game()
   uint8_t s = score;
   xQueueSend(scoreQ, &s, portMAX_DELAY);
   step_speed = START_SPEED;
+  blockT[nextBlock] = random8(0, 6);
+  blockR[nextBlock] = random8(0, 4);
+  blockY[nextBlock] = 0;
+  if (blocks[blockT[nextBlock]][blockR[nextBlock]][1] > 2)
+    blockY[nextBlock] = 1;
+  blockX[nextBlock] = 5;
+  nextBlock = 1 - nextBlock;
   next_block();
 }
 
@@ -247,15 +262,15 @@ void handle_controls()
     switch (command.action)
     {
       case moveLeft:
-        if (blockX > 0)
-          if (if_coll(blockX - 1, blockY, blockR) == 0)
-            blockX--;
+        if (blockX[nextBlock] > 0)
+          if (if_coll(blockX[nextBlock] - 1, blockY[nextBlock], blockR[nextBlock]) == 0)
+            blockX[nextBlock]--;
         break;
 
       case moveRight:
-        if (blockX + 1 < GAMEWIDTH)
-          if (if_coll(blockX + 1, blockY, blockR) == 0)
-            blockX++;
+        if (blockX[nextBlock] + 1 < GAMEWIDTH)
+          if (if_coll(blockX[nextBlock] + 1, blockY[nextBlock], blockR[nextBlock]) == 0)
+            blockX[nextBlock]++;
         break;
 
       case rotateLeft:
@@ -265,8 +280,8 @@ void handle_controls()
               Serial.print((blockR - 1) & 3);
               Serial.print("\n\n");*/
 
-        if (if_coll(blockX, blockY, (blockR - 1) & 3) == 0)
-          blockR = (blockR - 1) & 3;
+        if (if_coll(blockX[nextBlock], blockY[nextBlock], (blockR[nextBlock] - 1) & 3) == 0)
+          blockR[nextBlock] = (blockR[nextBlock] - 1) & 3;
         break;
 
       case rotateRight:
@@ -275,8 +290,8 @@ void handle_controls()
               Serial.print(" R+1: ");
               Serial.print((blockR + 1) & 3);
               Serial.print("\n\n"); */
-        if (if_coll(blockX, blockY, (blockR + 1) & 3) == 0)
-          blockR = (blockR + 1) & 3;
+        if (if_coll(blockX[nextBlock], blockY[nextBlock], (blockR[nextBlock] + 1) & 3) == 0)
+          blockR[nextBlock] = (blockR[nextBlock] + 1) & 3;
         break;
 
       case moveDown:
@@ -376,10 +391,10 @@ void displayTask(void *params)
         if (step_count > step_speed || drop == 1)
         {
           step_count = 0;
-          if (if_coll(blockX, blockY + 1, blockR) == 1)
+          if (if_coll(blockX[nextBlock], blockY[nextBlock] + 1, blockR[nextBlock]) == 1)
             collide();
           else
-            blockY++;
+            blockY[nextBlock]++;
         }
       }
       flash = 1 - flash;
