@@ -6,6 +6,14 @@
 #define COLOR_ORDER GRB
 #define CHIPSET WS2812B
 
+#define SW_PIN 21
+#define X_PIN 35
+#define Y_PIN 32
+#define JOY_SENS 250
+#define JOY_REF 1900
+#define JOY_LO (JOY_REF-JOY_SENS)
+#define JOY_HI (JOY_REF+JOY_SENS)
+
 #define UPDATES_PER_SECOND 25
 #define UPDATES_PER_BLINK 12
 #define UPDATES_PER_COLLAPSE 25

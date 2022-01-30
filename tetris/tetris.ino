@@ -22,6 +22,8 @@ void setup()
 
   Serial.begin(115200);
 
+  pinMode(SW_PIN, INPUT_PULLUP);
+
   commandQ = xQueueCreate(MAX_COMMANDS, sizeof(command_t));
   if (commandQ == NULL)
   {

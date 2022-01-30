@@ -6,8 +6,8 @@
 
 uint8_t buff[kMatrixHeight][kMatrixWidth];
 uint8_t blockX[2], blockY[2];
-uint8_t blockT[2] = {0,0};
-uint8_t blockR[2] = {0,0};
+uint8_t blockT[2] = {0, 0};
+uint8_t blockR[2] = {0, 0};
 uint8_t blink_on = 1;
 uint8_t blink_count = 0;
 uint8_t step_speed = START_SPEED;
@@ -18,6 +18,10 @@ uint8_t drop = 0;
 uint8_t flash = 0;
 uint8_t brightness = BRIGHTNESS;
 uint8_t nextBlock = 0;
+
+uint8_t pressX = 1;
+uint8_t pressY = 1;
+uint8_t pressS = 0;
 
 uint16_t XY(uint8_t x, uint8_t y)
 {
@@ -61,13 +65,13 @@ void next_block()
     blockY[nextBlock] = 1;
 
   /*uint8_t width = blocks[blockT][blockR][0];
-  if (width == 1)
+    if (width == 1)
     blockX = random8(0, kMatrixWidth);
-  else if (width == 2)
+    else if (width == 2)
     blockX = random8(0, kMatrixWidth - 1);
-  else if (width == 3)
+    else if (width == 3)
     blockX = random(1, kMatrixWidth - 1);
-  else
+    else
     blockX = random8(1, kMatrixWidth - 2); */
   blockX[nextBlock] = 5;
   nextBlock = 1 - nextBlock;
@@ -78,7 +82,6 @@ void next_block()
     xQueueSend(statusQ, &c, portMAX_DELAY);
   }
 }
-
 
 uint16_t XYsafe(uint8_t x, uint8_t y)
 {
@@ -108,13 +111,13 @@ void genDisplay()
     for (uint8_t i = 0; i < blocks[blockT[nextBlock]][blockR[nextBlock]][2]; i++)
     {
       uint8_t p = blocks[blockT[nextBlock]][blockR[nextBlock]][3] + i;
-      leds[XYsafe(blockX[nextBlock] - 1 + pixels[p][0], blockY[nextBlock] - 1 + pixels[p][1])] = CRGB(blockCol[blockT[nextBlock]][0]/(1 + 2*blink_on),blockCol[blockT[nextBlock]][1]/(1 + 2*blink_on),blockCol[blockT[nextBlock]][2]/(1 + 2*blink_on));
+      leds[XYsafe(blockX[nextBlock] - 1 + pixels[p][0], blockY[nextBlock] - 1 + pixels[p][1])] = CRGB(blockCol[blockT[nextBlock]][0] / (1 + 2 * blink_on), blockCol[blockT[nextBlock]][1] / (1 + 2 * blink_on), blockCol[blockT[nextBlock]][2] / (1 + 2 * blink_on));
     }
   }
-  for (uint8_t i = 0; i < blocks[blockT[1-nextBlock]][blockR[1-nextBlock]][2]; i++)
+  for (uint8_t i = 0; i < blocks[blockT[1 - nextBlock]][blockR[1 - nextBlock]][2]; i++)
   {
-    uint8_t p = blocks[blockT[1-nextBlock]][blockR[1-nextBlock]][3] + i;
-    leds[XYsafe(GAMEWIDTH + 1 + pixels[p][0], 4 + pixels[p][1])] = CRGB(blockCol[blockT[1-nextBlock]][0],blockCol[blockT[1-nextBlock]][1],blockCol[blockT[1-nextBlock]][2]);
+    uint8_t p = blocks[blockT[1 - nextBlock]][blockR[1 - nextBlock]][3] + i;
+    leds[XYsafe(GAMEWIDTH + 1 + pixels[p][0], 4 + pixels[p][1])] = CRGB(blockCol[blockT[1 - nextBlock]][0], blockCol[blockT[1 - nextBlock]][1], blockCol[blockT[1 - nextBlock]][2]);
   }
 }
 
@@ -248,11 +251,113 @@ void printCommand(command_t *c)
   Serial.println(c->b);
 }
 
+void tryMoveLeft()
+{
+  if (blockX[nextBlock] > 0)
+    if (if_coll(blockX[nextBlock] - 1, blockY[nextBlock], blockR[nextBlock]) == 0)
+      blockX[nextBlock]--;
+}
+
+void tryMoveRight()
+{
+  if (blockX[nextBlock] + 1 < GAMEWIDTH)
+    if (if_coll(blockX[nextBlock] + 1, blockY[nextBlock], blockR[nextBlock]) == 0)
+      blockX[nextBlock]++;
+}
+
+void tryRotateLeft()
+{
+  if (if_coll(blockX[nextBlock], blockY[nextBlock], (blockR[nextBlock] - 1) & 3) == 0)
+    blockR[nextBlock] = (blockR[nextBlock] - 1) & 3;
+}
+
+void tryRotateRight()
+{
+  if (if_coll(blockX[nextBlock], blockY[nextBlock], (blockR[nextBlock] + 1) & 3) == 0)
+    blockR[nextBlock] = (blockR[nextBlock] + 1) & 3;
+}
+
+void checkJoy()
+{
+  uint16_t joyX, joyY;
+
+  joyX = analogRead(X_PIN);
+  joyY = analogRead(Y_PIN);
+
+  /*Serial.print(joyX);
+    Serial.print("\t");
+    Serial.println(joyY); */
+
+  if (digitalRead(SW_PIN) == 0)
+  {
+    if (pressS == 0)
+    {
+      pressS = 1;
+      Serial.println("Joystick : Switch");
+      if (game_over == 1)
+      {
+        reset_game();
+        char c = 'P';
+        game_over = 0;
+        xQueueSend(statusQ, &c, portMAX_DELAY);
+      }
+      else
+        drop = 1;
+    }
+  }
+  else
+    pressS = 0;
+
+  if (joyX < JOY_LO)
+  {
+    if (pressX > 0)
+    {
+      pressX = 0;
+      Serial.println("Joystick : Right");
+      tryMoveRight();
+    }
+  }
+  else if (joyX > JOY_HI)
+  {
+    if (pressX < 2)
+    {
+      Serial.println("Joystick : Left");
+      pressX = 2;
+      tryMoveLeft();
+    }
+  }
+  else
+    pressX = 1;
+
+  if (joyY < JOY_LO)
+  {
+    if (pressY > 0)
+    {
+      pressY = 0;
+      Serial.println("Joystick : Up");
+      tryRotateLeft();
+    }
+  }
+  else if (joyY > JOY_HI)
+  {
+    if (pressY < 2)
+    {
+      pressY = 2;
+      Serial.println("Joystick : Down");
+      tryRotateRight();
+    }
+  }
+  else
+    pressY = 1;
+}
+
 void handle_controls()
 {
 
   command_t command;
   uint8_t repaint = 0;
+
+  checkJoy();
 
   while (uxQueueMessagesWaiting(commandQ) > 0)
   {
@@ -275,10 +380,10 @@ void handle_controls()
 
       case rotateLeft:
         /*      Serial.print("R : ");
-              Serial.print(blockR);
-              Serial.print(" R-1: ");
-              Serial.print((blockR - 1) & 3);
-              Serial.print("\n\n");*/
+                Serial.print(blockR);
+                Serial.print(" R-1: ");
+                Serial.print((blockR - 1) & 3);
+                Serial.print("\n\n");*/
 
         if (if_coll(blockX[nextBlock], blockY[nextBlock], (blockR[nextBlock] - 1) & 3) == 0)
           blockR[nextBlock] = (blockR[nextBlock] - 1) & 3;
@@ -286,10 +391,10 @@ void handle_controls()
 
       case rotateRight:
         /*      Serial.print("R : ");
-              Serial.print(blockR);
-              Serial.print(" R+1: ");
-              Serial.print((blockR + 1) & 3);
-              Serial.print("\n\n"); */
+                Serial.print(blockR);
+                Serial.print(" R+1: ");
+                Serial.print((blockR + 1) & 3);
+                Serial.print("\n\n"); */
         if (if_coll(blockX[nextBlock], blockY[nextBlock], (blockR[nextBlock] + 1) & 3) == 0)
           blockR[nextBlock] = (blockR[nextBlock] + 1) & 3;
         break;
@@ -310,24 +415,24 @@ void handle_controls()
         game_over = 0;
         xQueueSend(statusQ, &c, portMAX_DELAY);
         break;
-        
+
       case paintPixel:
-        leds[XYsafe(command.x, command.y)] = CRGB(command.r,command.g, command.b);
+        leds[XYsafe(command.x, command.y)] = CRGB(command.r, command.g, command.b);
         repaint = 1;
         break;
-        
+
       case screenFill:
-        fill_solid( leds, NUM_LEDS, CRGB(command.r,command.g, command.b));
+        fill_solid(leds, NUM_LEDS, CRGB(command.r, command.g, command.b));
         repaint = 1;
         break;
-        
+
       case screenBrightness:
         brightness = scale8(BRIGHTNESS, command.b);
         Serial.print("Bright=");
         Serial.println(brightness);
         FastLED.setBrightness(brightness);
         break;
-        
+
       case screenImage:
         xQueueReceive(frameQ, leds, portMAX_DELAY);
         repaint = 1;
