@@ -28,7 +28,7 @@ void handleNotFound(AsyncWebServerRequest *request)
   }
 }
 
-void handleTest(AsyncWebServerRequest *request)
+/* void handleTest(AsyncWebServerRequest *request)
 {
   if (request->method() == HTTP_OPTIONS)
   {
@@ -52,7 +52,7 @@ void handleTest(AsyncWebServerRequest *request)
 
     request->send(200, "text/plain", message);
   }
-}
+} */
 
 bool loadFromLittleFS(AsyncWebServerRequest *request, String path)
 {
@@ -97,7 +97,7 @@ void handleRoot(AsyncWebServerRequest *request)
   }
 }
 
-void handleControl(AsyncWebServerRequest *request, const action_t a)
+/* void handleControl(AsyncWebServerRequest *request, const action_t a)
 {
   command_t c = {a};
   request->send(200, "text/plain", "OK\n");
@@ -270,7 +270,7 @@ void handleScreen(AsyncWebServerRequest *request)
       request->send(409, "text/plain", "Cannot fill screen while game is in progress\n");
     }
   }
-}
+} */
 
 void wsHandler(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
 {
@@ -287,10 +287,10 @@ void wsHandler(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
       Serial.println((char)data[0]);
       switch ((char)data[0]) {
         case 'B':
-          c = {screenBrightness, 0, 0, 0, 0, data[1]};
+          c = {screenBrightness, data[1]};
           xQueueSend(commandQ, &c, portMAX_DELAY);
           break;
-        case 'L':
+        /* case 'L':
           c = {moveLeft};
           xQueueSend(commandQ, &c, portMAX_DELAY);
           break;
@@ -317,7 +317,7 @@ void wsHandler(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
         case 'O':
           c = {gameStop};
           xQueueSend(commandQ, &c, portMAX_DELAY);
-          break;
+          break; */
       }
       break;
   }
@@ -346,7 +346,7 @@ void webTask(void *params)
 
   // Activate mDNS this is used to be able to connect to the server
   // with local DNS hostmane esp8266.local
-  if (MDNS.begin("leds")) {
+  if (MDNS.begin("partyrings")) {
     Serial.println("MDNS responder started");
   }
   
@@ -357,10 +357,10 @@ void webTask(void *params)
   }
 
   server.on("/", handleRoot);
-  server.on("/test", handleTest);
+  /* server.on("/test", handleTest);
   server.on("/tetris", handleTetris);
   server.on("/pixel", handlePixel);
-  server.on("/screen", handleScreen);
+  server.on("/screen", handleScreen); */
   server.onNotFound(handleNotFound);
   ws.onEvent(wsHandler);
   server.addHandler(&ws);
@@ -372,7 +372,7 @@ void webTask(void *params)
   for (;;)
   {
     vTaskDelay(10);
-    while (uxQueueMessagesWaiting(scoreQ)>0)
+    /*while (uxQueueMessagesWaiting(scoreQ)>0)
     {
       xQueueReceive(scoreQ, &data, portMAX_DELAY);
       message[0] = 'S';
@@ -384,6 +384,6 @@ void webTask(void *params)
       xQueueReceive(statusQ, &data, portMAX_DELAY);
       message[0] = (char)data;
       ws.textAll(message, 2);
-    }
+    } */
   }
 }

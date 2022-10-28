@@ -26,27 +26,7 @@
 </head>
 
 <body>
-    <h1>TechJam Tetris</h1>
-    <h2>Score : <span id="score">0</span></h2>
-    <div id="playing" style="display: none;">
-        <p>
-            <button class="button" onclick="sendAPI('L');">&#8678</button>
-            <button class="button" onclick="sendAPI('R');">&#8680</button>
-        </p>
-        <p>
-            <button class="button" onclick="sendAPI('l');">&#8630</button>
-            <button class="button" onclick="sendAPI('r');">&#8631</button>
-        </p>
-        <p>
-            <button class="button" onclick="sendAPI('D');">&#8681</button>
-        </p>
-        <p>
-            <button class="button" onclick="sendAPI('O');">Stop &#9632</button>
-        </p>
-    </div>
-    <div id="gameover">
-        <button class="button" onclick="sendAPI('P');">Play &#9654</button>
-    </div>
+    <h1>Party Rings</h1>
     <div>
         <p><button class="button" onclick="setBrightness();">Set Brightness</button></p>
         <p><input type="range" min="16" max="255" step="1" value="128" class="slider" id="brightness"></p>
@@ -55,7 +35,7 @@
     <script>
         ws = new WebSocket("ws://" + window.location.host + window.location.pathname + "ws");
 
-        ws.onmessage = event => {
+/*        ws.onmessage = event => {
             switch (event.data[0]) {
                 case 'P': 
                     document.querySelector("#playing").style.display = "block";
@@ -68,13 +48,7 @@
                 default:
                     document.querySelector("#score").innerText = event.data.charCodeAt(1);
             }
-        }
-
-        function sendAPI(name) {
-            if (ws.readyState == WebSocket.OPEN) {
-                ws.send(name);
-            }
-        }
+        } */
 
         function setBrightness() {
             let m = new Uint8Array(2);
@@ -84,31 +58,6 @@
                 ws.send(m);
             }
         }
-
-        function checkScore() {
-            fetch("/tetris?query=score").then(r => r.text()).then(t => {
-                console.log(t);
-                document.querySelector("#score").innerText = t;
-                return;
-            });
-        }
-
-        function checkStatus() {
-            fetch("/tetris?query=progress").then(r => r.text()).then(t => {
-                console.log(t);
-                if (t == "play") {
-                    document.querySelector("#playing").style.display = "block";
-                    document.querySelector("#gameover").style.display = "none";
-                } else {
-                    document.querySelector("#playing").style.display = "none";
-                    document.querySelector("#gameover").style.display = "block";
-                }
-                return;
-            });
-        }
-
-        checkScore();
-        checkStatus();
 
 /*       window.setInterval(checkScore, 5000);
         window.setInterval(checkStatus, 2000); */
