@@ -1,6 +1,7 @@
 #include "common.h"
 #include "FS.h"
 #include <LittleFS.h>
+#include "secrets.h"
 
 void handleNotFound(AsyncWebServerRequest *request)
 {
@@ -29,7 +30,7 @@ void handleNotFound(AsyncWebServerRequest *request)
 }
 
 /* void handleTest(AsyncWebServerRequest *request)
-{
+  {
   if (request->method() == HTTP_OPTIONS)
   {
     request->send(200);
@@ -52,7 +53,7 @@ void handleNotFound(AsyncWebServerRequest *request)
 
     request->send(200, "text/plain", message);
   }
-} */
+  } */
 
 bool loadFromLittleFS(AsyncWebServerRequest *request, String path)
 {
@@ -98,14 +99,14 @@ void handleRoot(AsyncWebServerRequest *request)
 }
 
 /* void handleControl(AsyncWebServerRequest *request, const action_t a)
-{
+  {
   command_t c = {a};
   request->send(200, "text/plain", "OK\n");
   xQueueSend(commandQ, &c, portMAX_DELAY);
-}
+  }
 
-void handleTetris(AsyncWebServerRequest *request)
-{
+  void handleTetris(AsyncWebServerRequest *request)
+  {
   if (request->method() == HTTP_OPTIONS)
   {
     request->send(200);
@@ -187,10 +188,10 @@ void handleTetris(AsyncWebServerRequest *request)
       handleNotFound(request);
     }
   }
-}
+  }
 
-void handlePixel(AsyncWebServerRequest *request)
-{
+  void handlePixel(AsyncWebServerRequest *request)
+  {
   if (request->method() == HTTP_OPTIONS)
   {
     request->send(200);
@@ -213,12 +214,12 @@ void handlePixel(AsyncWebServerRequest *request)
       request->send(409, "text/plain", "Cannot paint pixels while game is in progress\n");
     }
   }
-}
+  }
 
-uint8_t imageBuf[NUM_LEDS*3];
+  uint8_t imageBuf[NUM_LEDS*3];
 
-void handleScreen(AsyncWebServerRequest *request)
-{
+  void handleScreen(AsyncWebServerRequest *request)
+  {
   if (request->method() == HTTP_OPTIONS)
   {
     request->send(200);
@@ -270,12 +271,13 @@ void handleScreen(AsyncWebServerRequest *request)
       request->send(409, "text/plain", "Cannot fill screen while game is in progress\n");
     }
   }
-} */
+  } */
 
-void wsHandler(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
+void wsHandler(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
 {
   command_t c;
-  switch (type) {
+  switch (type)
+  {
     case WS_EVT_CONNECT:
       Serial.println("Websocket client connection received");
       break;
@@ -285,43 +287,46 @@ void wsHandler(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
     case WS_EVT_DATA:
       Serial.print("Socket data: ");
       Serial.println((char)data[0]);
-      switch ((char)data[0]) {
+      switch ((char)data[0])
+      {
         case 'B':
           c = {screenBrightness, data[1]};
           xQueueSend(commandQ, &c, portMAX_DELAY);
           break;
-        /* case 'L':
-          c = {moveLeft};
-          xQueueSend(commandQ, &c, portMAX_DELAY);
-          break;
-        case 'R':
-          c = {moveRight};
-          xQueueSend(commandQ, &c, portMAX_DELAY);
-          break;
-        case 'D':
-          c = {moveDown};
-          xQueueSend(commandQ, &c, portMAX_DELAY);
-          break;
-        case 'l':
-          c = {rotateLeft};
-          xQueueSend(commandQ, &c, portMAX_DELAY);
-          break;
-        case 'r':
-          c = {rotateRight};
-          xQueueSend(commandQ, &c, portMAX_DELAY);
-          break;
-        case 'P':
-          c = {gamePlay};
-          xQueueSend(commandQ, &c, portMAX_DELAY);
-          break;
-        case 'O':
-          c = {gameStop};
-          xQueueSend(commandQ, &c, portMAX_DELAY);
-          break; */
+          /* case 'L':
+            c = {moveLeft};
+            xQueueSend(commandQ, &c, portMAX_DELAY);
+            break;
+            case 'R':
+            c = {moveRight};
+            xQueueSend(commandQ, &c, portMAX_DELAY);
+            break;
+            case 'D':
+            c = {moveDown};
+            xQueueSend(commandQ, &c, portMAX_DELAY);
+            break;
+            case 'l':
+            c = {rotateLeft};
+            xQueueSend(commandQ, &c, portMAX_DELAY);
+            break;
+            case 'r':
+            c = {rotateRight};
+            xQueueSend(commandQ, &c, portMAX_DELAY);
+            break;
+            case 'P':
+            c = {gamePlay};
+            xQueueSend(commandQ, &c, portMAX_DELAY);
+            break;
+            case 'O':
+            c = {gameStop};
+            xQueueSend(commandQ, &c, portMAX_DELAY);
+            break; */
       }
       break;
   }
 }
+
+WiFiMulti wifiMulti;
 
 void webTask(void *params)
 {
@@ -336,20 +341,36 @@ void webTask(void *params)
   AsyncWebSocket ws("/ws");
 
   // Connect to Wi-Fi network with SSID and password
-  Serial.print("Setting AP (Access Point)…");
+  // Serial.print("Setting AP (Access Point)…");
   // Remove the password parameter, if you want the AP (Access Point) to be open
-  WiFi.softAP(ssid);
+  // WiFi.softAP(ssid);
 
-  IPAddress IP = WiFi.softAPIP();
-  Serial.print("AP IP address: ");
-  Serial.println(IP);
+  // IPAddress IP = WiFi.softAPIP();
+
+  wifiMulti.addAP(SECRETSSID1, SECRETPASSWORD1);
+  wifiMulti.addAP(SECRETSSID2, SECRETPASSWORD2);
+  if (wifiMulti.run() == WL_CONNECTED)
+  {
+    IPAddress IP = WiFi.localIP();
+    String out = "Partyrings: ";
+    out += IP.toString();
+    Serial.println(out);
+  }
 
   // Activate mDNS this is used to be able to connect to the server
   // with local DNS hostmane esp8266.local
-  if (MDNS.begin("partyrings")) {
-    Serial.println("MDNS responder started");
+  //initialize mDNS service
+  esp_err_t err = mdns_init();
+  if (err) {
+    printf("MDNS Init failed: %d\n", err);
+    return;
   }
-  
+
+  //set hostname
+  mdns_hostname_set("my-esp32");
+  //set default instance
+  mdns_instance_name_set("partyrings");
+
   if (!LittleFS.begin())
   {
     Serial.println("LittleFS Mount Failed");
@@ -358,9 +379,9 @@ void webTask(void *params)
 
   server.on("/", handleRoot);
   /* server.on("/test", handleTest);
-  server.on("/tetris", handleTetris);
-  server.on("/pixel", handlePixel);
-  server.on("/screen", handleScreen); */
+    server.on("/tetris", handleTetris);
+    server.on("/pixel", handlePixel);
+    server.on("/screen", handleScreen); */
   server.onNotFound(handleNotFound);
   ws.onEvent(wsHandler);
   server.addHandler(&ws);
@@ -373,17 +394,17 @@ void webTask(void *params)
   {
     vTaskDelay(10);
     /*while (uxQueueMessagesWaiting(scoreQ)>0)
-    {
+      {
       xQueueReceive(scoreQ, &data, portMAX_DELAY);
       message[0] = 'S';
       message[1] = (char)data;
       ws.textAll(message, 2);
-    }
-    while (uxQueueMessagesWaiting(statusQ)>0)
-    {
+      }
+      while (uxQueueMessagesWaiting(statusQ)>0)
+      {
       xQueueReceive(statusQ, &data, portMAX_DELAY);
       message[0] = (char)data;
       ws.textAll(message, 2);
-    } */
+      } */
   }
 }
