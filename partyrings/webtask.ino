@@ -2,6 +2,11 @@
 #include "FS.h"
 #include <LittleFS.h>
 #include "secrets.h"
+#include <WiFiClientSecure.h>
+#include <ArduinoJson.h>
+#include "SpotifyArduino.h"
+#include "SpotifyArduinoCert.h"
+#include <string>
 
 void handleNotFound(AsyncWebServerRequest *request)
 {
@@ -326,7 +331,128 @@ void wsHandler(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
   }
 }
 
+std::string oldId = "";
+std::string currentId = "";
+
+void printCurrentlyPlayingToSerial(CurrentlyPlaying currentlyPlaying);
+
+void printCurrentlyPlayingToSerial(CurrentlyPlaying currentlyPlaying)
+{
+  // Use the details in this method or if you want to store them
+  // make sure you copy them (using something like strncpy)
+  // const char* artist =
+
+  Serial.println("--------- Currently Playing ---------");
+
+  Serial.print("Is Playing: ");
+  if (currentlyPlaying.isPlaying)
+  {
+    Serial.println("Yes");
+  }
+  else
+  {
+    Serial.println("No");
+  }
+
+  Serial.print("Track: ");
+  Serial.println(currentlyPlaying.trackName);
+  Serial.print("Track URI: ");
+  Serial.println(currentlyPlaying.trackUri);
+  Serial.println();
+  currentId = currentlyPlaying.id;
+
+  Serial.println("Artists: ");
+  for (int i = 0; i < currentlyPlaying.numArtists; i++)
+  {
+    Serial.print("Name: ");
+    Serial.println(currentlyPlaying.artists[i].artistName);
+    Serial.print("Artist URI: ");
+    Serial.println(currentlyPlaying.artists[i].artistUri);
+    Serial.println();
+  }
+
+  Serial.print("Album: ");
+  Serial.println(currentlyPlaying.albumName);
+  Serial.print("Album URI: ");
+  Serial.println(currentlyPlaying.albumUri);
+  Serial.println();
+
+  long progress = currentlyPlaying.progressMs; // duration passed in the song
+  long duration = currentlyPlaying.durationMs; // Length of Song
+  Serial.print("Elapsed time of song (ms): ");
+  Serial.print(progress);
+  Serial.print(" of ");
+  Serial.println(duration);
+  Serial.println();
+
+  float percentage = ((float)progress / (float)duration) * 100;
+  int clampedPercentage = (int)percentage;
+  Serial.print("<");
+  for (int j = 0; j < 50; j++)
+  {
+    if (clampedPercentage >= (j * 2))
+    {
+      Serial.print("=");
+    }
+    else
+    {
+      Serial.print("-");
+    }
+  }
+  Serial.println(">");
+  Serial.println();
+
+  // will be in order of widest to narrowest
+  // currentlyPlaying.numImages is the number of images that
+  // are stored
+  for (int i = 0; i < currentlyPlaying.numImages; i++)
+  {
+    Serial.println("------------------------");
+    Serial.print("Album Image: ");
+    Serial.println(currentlyPlaying.albumImages[i].url);
+    Serial.print("Dimensions: ");
+    Serial.print(currentlyPlaying.albumImages[i].width);
+    Serial.print(" x ");
+    Serial.print(currentlyPlaying.albumImages[i].height);
+    Serial.println();
+  }
+  Serial.println("------------------------");
+}
+
+void printAnalysisToSerial(Analysis analysis);
+
+void printAnalysisToSerial(Analysis analysis)
+{
+  // Use the details in this method or if you want to store them
+  // make sure you copy them (using something like strncpy)
+  // const char* artist =
+
+  Serial.println("--------- Analysis ---------");
+
+  Serial.print("Tempo: ");
+  Serial.println(analysis.tempo);
+  Serial.print("Time signature: ");
+  Serial.println(analysis.signature);
+  Serial.println();
+
+  Serial.println("NUmber of: ");
+  Serial.print("Bars: ");
+  Serial.println(analysis.numBars);
+  Serial.print("Beats: ");
+  Serial.println(analysis.numBeats);
+  Serial.print("Tatums: ");
+  Serial.println(analysis.numTatums);
+  Serial.println();
+
+  Serial.println("------------------------");
+}
+
 WiFiMulti wifiMulti;
+WiFiClientSecure client;
+SpotifyArduino spotify(client, spotifyId, spotifySecret, SPOTIFYTOKEN);
+
+unsigned long delayBetweenRequests = 20000; // Time between requests (20 sec)
+unsigned long requestDueTime;               // time when request due
 
 void webTask(void *params)
 {
@@ -359,16 +485,17 @@ void webTask(void *params)
 
   // Activate mDNS this is used to be able to connect to the server
   // with local DNS hostmane esp8266.local
-  //initialize mDNS service
+  // initialize mDNS service
   esp_err_t err = mdns_init();
-  if (err) {
+  if (err)
+  {
     printf("MDNS Init failed: %d\n", err);
     return;
   }
 
-  //set hostname
+  // set hostname
   mdns_hostname_set("my-esp32");
-  //set default instance
+  // set default instance
   mdns_instance_name_set("partyrings");
 
   if (!LittleFS.begin())
@@ -390,6 +517,14 @@ void webTask(void *params)
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
   server.begin();
 
+  client.setCACert(spotify_server_cert);
+  Serial.println(spotifySecret);
+  Serial.println("Refreshing Access Tokens");
+  if (!spotify.refreshAccessToken())
+  {
+    Serial.println("Failed to get access tokens");
+  }
+
   for (;;)
   {
     vTaskDelay(10);
@@ -406,5 +541,38 @@ void webTask(void *params)
       message[0] = (char)data;
       ws.textAll(message, 2);
       } */
+    if (millis() > requestDueTime)
+    {
+      Serial.print("Free Heap: ");
+      Serial.println(ESP.getFreeHeap());
+
+      Serial.println("getting currently playing song:");
+      // Market can be excluded if you want e.g. spotify.getCurrentlyPlaying()
+      int status = spotify.getCurrentlyPlaying(printCurrentlyPlayingToSerial, "");
+      if (status == 200)
+      {
+        Serial.println("Successfully got currently playing");
+        if (currentId != oldId)
+        {
+          oldId = currentId;
+          int status = spotify.getTrackAnalysis(printAnalysisToSerial, currentId.c_str());
+          if (status != 200)
+          {
+            Serial.print("Get analysis error: ");
+            Serial.println(status);
+          }
+        }
+      }
+      else if (status == 204)
+      {
+        Serial.println("Doesn't seem to be anything playing");
+      }
+      else
+      {
+        Serial.print("Error: ");
+        Serial.println(status);
+      }
+      requestDueTime = millis() + delayBetweenRequests;
+    }
   }
 }

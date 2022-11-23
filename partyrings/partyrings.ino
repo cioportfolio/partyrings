@@ -48,5 +48,5 @@ void setup()
     Serial.println("Could not create status queue");
   } */
   xTaskCreatePinnedToCore(displayTask, "DISPLAY", 10240, &params, 10, &displayHandle, 1);
-  xTaskCreatePinnedToCore(webTask, "WEB", 10240, &params, 5, &webHandle, 0);
+  xTaskCreatePinnedToCore(webTask, "WEB", 40960, &params, 5, &webHandle, 0);
 }
