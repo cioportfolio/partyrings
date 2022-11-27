@@ -21,6 +21,7 @@ void setup()
   TaskHandle_t displayHandle = NULL;
 
   Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT);
 
 //  pinMode(SW_PIN, INPUT_PULLUP);
 
@@ -30,6 +31,11 @@ void setup()
     Serial.println("Could not create command queue");
   }
 
+  analysisQ = xQueueCreate(1, sizeof(analysis_t));
+  if (analysisQ == NULL)
+  {
+    Serial.println("Could not create analysis queue");
+  }
   /* frameQ = xQueueCreate(1, NUM_LEDS*3);
   if (frameQ == NULL)
   {
@@ -48,5 +54,5 @@ void setup()
     Serial.println("Could not create status queue");
   } */
   xTaskCreatePinnedToCore(displayTask, "DISPLAY", 10240, &params, 10, &displayHandle, 1);
-  xTaskCreatePinnedToCore(webTask, "WEB", 40960, &params, 5, &webHandle, 0);
+  xTaskCreatePinnedToCore(webTask, "WEB", 10240, &params, 5, &webHandle, 0);
 }

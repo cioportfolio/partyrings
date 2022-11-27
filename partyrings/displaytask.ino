@@ -4,7 +4,42 @@
 
 TickType_t lastShow = xTaskGetTickCount();
 uint8_t brightness = BRIGHTNESS;
+uint16_t progress = 0;
+int shownBeat = -1;
+int shownBar = -1;
+int shownTatum = -1;
+uint16_t nextBar = 0;
+uint16_t nextBeat = 0;
+uint16_t nextTatum = 0;
+int tog = 1;
+unsigned long trackStart = millis() / 10;
 
+void resetEvents()
+{
+  shownBar = -1;
+  nextBar = 0;
+  shownBeat = -1;
+  nextBeat = 0;
+  shownTatum = -1;
+  nextTatum = 0;
+  checkBar();
+  checkBeat();
+  checkTatum();
+}
+
+void toggleLED()
+{
+  if (tog == 1)
+  {
+    digitalWrite(LED_BUILTIN, HIGH);
+    tog = 0;
+  }
+  else
+  {
+    digitalWrite(LED_BUILTIN, LOW);
+    tog = 1;
+  }
+}
 void Refresh()
 {
   const uint32_t delayTicks = 1000 / UPDATES_PER_SECOND / portTICK_PERIOD_MS;
@@ -17,10 +52,10 @@ void handle_controls()
 {
 
   command_t command;
+  uint16_t prog, estProg;
 
   while (uxQueueMessagesWaiting(commandQ) > 0)
   {
-    char c;
     xQueueReceive(commandQ, &command, portMAX_DELAY);
     switch (command.action)
     {
@@ -30,27 +65,132 @@ void handle_controls()
       Serial.println(brightness);
       FastLED.setBrightness(brightness);
       break;
-
+    case newStart:
+      Serial.println("New Start Command. Old start: ");
+      Serial.print((float)trackStart / 100.0);
+      Serial.print(" New start :");
+      trackStart = command.s;
+      Serial.println((float)trackStart / 100.0);
+      /*      estProg = (trackStart - millis()/10) * progAdjust / 128;
+            Serial.print("Adjust : ");
+            Serial.print(progAdjust);
+            Serial.print(" prog :");
+            Serial.print(prog);
+            Serial.print(" est: ");
+            Serial.print(estProg);
+            Serial.print(" out by :");
+            Serial.println(estProg - prog);
+            if (estProg - prog > 0)
+            {
+              progAdjust--;
+            }
+            else {
+              progAdjust++;
+            }
+            if (prog < progress)
+            {
+              if (progress - prog > 100)
+              {
+                Serial.println("Big time gap, assume reset");
+                progress = prog;
+                resetEvents();
+              }
+              else
+              {
+                Serial.print("Out of sync by :");
+                Serial.println(progress - prog);
+              }
+            }
+            else
+            {
+              progress = prog;
+            } */
+      break;
+    case newAnalysis:
+      Serial.println("New Analysis Command");
+      Serial.print(" New start :");
+      trackStart = command.s;
+      Serial.println((float)trackStart / 100.0);
+      xQueueReceive(analysisQ, &analOut, portMAX_DELAY);
+      resetEvents();
+      break;
     default:
       break;
     }
   }
 }
 
+boolean checkBeat()
+{
+  uint16_t progress = millis() / 10 - trackStart;
+  if (progress >= nextBeat)
+  {
+    for (int i = shownBeat + 1; i < analOut.beatCount; i++)
+    {
+      if (analOut.beats[i] > progress)
+      {
+        nextBeat = analOut.beats[i];
+        shownBeat = i;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+boolean checkBar()
+{
+  uint16_t progress = millis() / 10 - trackStart;
+  if (progress >= nextBar)
+  {
+    for (int i = shownBar + 1; i < analOut.barCount; i++)
+    {
+      if (analOut.bars[i] > progress)
+      {
+        nextBar = analOut.bars[i];
+        shownBar = i;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+boolean checkTatum()
+{
+  uint16_t progress = millis() / 10 - trackStart;
+  if (progress >= nextTatum)
+  {
+    for (int i = shownTatum + 1; i < analOut.tatumCount; i++)
+    {
+      if (analOut.tatums[i] > progress)
+      {
+        nextTatum = analOut.tatums[i];
+        shownTatum = i;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 CRGBPalette16 currentPalette;
 TBlendType currentBlending;
 uint8_t layout = 0;
 uint8_t tightness = 3;
+uint8_t colorIndex = 0;
 
 extern CRGBPalette16 myRedWhiteBluePalette;
 extern const TProgmemPalette16 myRedWhiteBluePalette_p PROGMEM;
 int8_t dir = 1;
+int8_t colStep = 1;
 
 void displayTask(void *params)
 {
 
   Serial.print("Display task on core ");
   Serial.println(xPortGetCoreID());
+  toggleLED();
 
   vTaskDelay(3000 / portTICK_PERIOD_MS); // power-up safety delay
 
@@ -60,38 +200,44 @@ void displayTask(void *params)
   for (;;)
   {
     random16_add_entropy(esp_random() & 0xFFFF);
-    for (uint8_t s = 0; s < 255; s++)
+    /*    for (uint8_t s = 0; s < 255; s++)
+        { */
+    if (millis() < 5000)
     {
-      if (millis() < 5000)
-      {
-        FastLED.setBrightness(scale8(brightness, (millis() * 256) / 5000));
-      }
-      else
-      {
-        FastLED.setBrightness(brightness);
-      }
-
-      //      uint8_t sensorValue = analogRead(A0)>>2;
-      //      Serial.println(sensorValue);
-      //      if (sensorValue < 15) sensorValue=0;
-      //      FastLED.setBrightness(  scale8(sensorValue,BRIGHTNESS) );
-      handle_controls();
-
-      genDisplay(s);
-      Refresh();
+      FastLED.setBrightness(scale8(brightness, (millis() * 256) / 5000));
     }
+    else
+    {
+      FastLED.setBrightness(brightness);
+    }
+
+    //      uint8_t sensorValue = analogRead(A0)>>2;
+    //      Serial.println(sensorValue);
+    //      if (sensorValue < 15) sensorValue=0;
+    //      FastLED.setBrightness(  scale8(sensorValue,BRIGHTNESS) );
+    handle_controls();
+    genDisplay();
+    Refresh();
+    //    }
   }
 }
 
-void genDisplay(uint8_t startIndex)
+void genDisplay()
 {
-  ChangePalettePeriodically();
-  FillLEDsFromPaletteColors(startIndex);
+  boolean bt = checkBeat();
+  boolean br = checkBar();
+  boolean tt = checkTatum();
+  colorIndex +=colStep;
+  ChangePalettePeriodically(br, bt, tt);
+  FillLEDsFromPaletteColors(br, bt, tt);
+  if (tt)
+  {
+    toggleLED();
+  }
 }
 
-void FillLEDsFromPaletteColors(uint8_t colorIndex)
+void FillLEDsFromPaletteColors(boolean barNow, boolean beatNow, boolean tatumNow)
 {
-  uint8_t brightness = 255;
 
   for (int i = 0; i < NUM_LEDS; i++)
   {
@@ -123,7 +269,7 @@ void FillLEDsFromPaletteColors(uint8_t colorIndex)
       break;
     }
     uint8_t colOffset = colorIndex + tightness * pos * dir;
-    leds[i] = ColorFromPalette(currentPalette, colOffset, brightness, currentBlending);
+    leds[i] = ColorFromPalette(currentPalette, colOffset, beatNow?255:128, currentBlending);
   }
 }
 
@@ -198,68 +344,77 @@ uint8_t idx2Fig8(uint8_t i)
 //   if (layout > 6)
 //     layout = 0;
 // }
-void ChangePalettePeriodically()
+void ChangePalettePeriodically(boolean barNow, boolean beatNow, boolean tatumNow)
 {
-  uint8_t secondHand = (millis() / 4000) % 60;
-  static uint8_t lastSecond = 99;
+  /*  uint8_t secondHand = (millis() / 4000) % 60;
+    static uint8_t lastSecond = 99;
 
-  if (lastSecond != secondHand)
-  {
-    lastSecond = secondHand;
-
-    if (secondHand % 5 == 0)
+    if (lastSecond != secondHand)
     {
-      layout = random8() % 7;
-      dir = random8() % 2 * 2 - 1;
-      tightness = random8() % 6 + 1;
-      switch (random8() % 11)
-      {
-      case 0:
-        currentPalette = RainbowColors_p;
-        currentBlending = LINEARBLEND;
-        break;
-      case 1:
-        currentPalette = RainbowStripeColors_p;
-        currentBlending = NOBLEND;
-        break;
-      case 2:
-        currentPalette = RainbowStripeColors_p;
-        currentBlending = LINEARBLEND;
-        break;
-      case 3:
-        SetupPurpleAndGreenPalette();
-        currentBlending = LINEARBLEND;
-        break;
-      case 4:
-        SetupTotallyRandomPalette();
-        currentBlending = LINEARBLEND;
-        break;
-      case 5:
-        SetupBlackAndWhiteStripedPalette();
-        currentBlending = NOBLEND;
-        break;
-      case 6:
-        SetupBlackAndWhiteStripedPalette();
-        currentBlending = LINEARBLEND;
-        break;
-      case 7:
-        currentPalette = CloudColors_p;
-        currentBlending = LINEARBLEND;
-        break;
-      case 8:
-        currentPalette = PartyColors_p;
-        currentBlending = LINEARBLEND;
-        break;
-      case 9:
-        currentPalette = myRedWhiteBluePalette_p;
-        currentBlending = NOBLEND;
-        break;
-      case 10:
-        currentPalette = myRedWhiteBluePalette_p;
-        currentBlending = LINEARBLEND;
-      }
+      lastSecond = secondHand;
+
+      if (secondHand % 5 == 0)
+      { */
+
+  if (beatNow)
+  {
+    colStep = -colStep;
+  }
+
+  if (barNow)
+  {
+    layout = random8() % 7;
+    dir = random8() % 2 * 2 - 1;
+    tightness = random8() % 6 + 1;
+    switch (random8() % 11)
+    {
+    case 0:
+      currentPalette = RainbowColors_p;
+      currentBlending = LINEARBLEND;
+      break;
+    case 1:
+      currentPalette = RainbowStripeColors_p;
+      currentBlending = NOBLEND;
+      break;
+    case 2:
+      currentPalette = RainbowStripeColors_p;
+      currentBlending = LINEARBLEND;
+      break;
+    case 3:
+      SetupPurpleAndGreenPalette();
+      currentBlending = LINEARBLEND;
+      break;
+    case 4:
+      SetupTotallyRandomPalette();
+      currentBlending = LINEARBLEND;
+      break;
+    case 5:
+      SetupBlackAndWhiteStripedPalette();
+      currentBlending = NOBLEND;
+      break;
+    case 6:
+      SetupBlackAndWhiteStripedPalette();
+      currentBlending = LINEARBLEND;
+      break;
+    case 7:
+      currentPalette = CloudColors_p;
+      currentBlending = LINEARBLEND;
+      break;
+    case 8:
+      currentPalette = PartyColors_p;
+      currentBlending = LINEARBLEND;
+      break;
+    case 9:
+      currentPalette = myRedWhiteBluePalette_p;
+      currentBlending = NOBLEND;
+      break;
+    case 10:
+      currentPalette = myRedWhiteBluePalette_p;
+      currentBlending = LINEARBLEND;
     }
   }
+  /*    }
+    } */
 }
 
 // This function fills the palette with totally random colors.

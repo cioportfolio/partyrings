@@ -1,7 +1,7 @@
 #ifndef __SETTINGS__
 #define __SETTINGS__
 
-#define BRIGHTNESS 64
+#define BRIGHTNESS 32
 #define LED_PIN 25
 #define COLOR_ORDER GRB
 #define CHIPSET WS2812B
@@ -19,7 +19,7 @@
 #define UPDATES_PER_COLLAPSE 25
 #define START_SPEED 30 */
 
-const char* ssid = "partyrings";
+#define URL "http://192.168.1.20:8001" //office pc
 
 // Params for width and height
 const uint8_t kMatrixWidth = 2;
@@ -28,5 +28,9 @@ const uint8_t kMatrixHeight = 12;
 // Param for different pixel layouts
 //const bool kMatrixSerpentineLayout = true;
 //const bool kMatrixTopToBottom = false;
+
+#define MAX_BARS 200
+#define MAX_BEATS 800
+#define MAX_TATUMS 1600
 
 #endif

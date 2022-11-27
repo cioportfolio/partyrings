@@ -1,12 +1,8 @@
 #include "common.h"
 #include "FS.h"
 #include <LittleFS.h>
+#include <HTTPClient.h>
 #include "secrets.h"
-#include <WiFiClientSecure.h>
-#include <ArduinoJson.h>
-#include "SpotifyArduino.h"
-#include "SpotifyArduinoCert.h"
-#include <string>
 
 void handleNotFound(AsyncWebServerRequest *request)
 {
@@ -283,181 +279,68 @@ void wsHandler(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
   command_t c;
   switch (type)
   {
-    case WS_EVT_CONNECT:
-      Serial.println("Websocket client connection received");
-      break;
-    case WS_EVT_DISCONNECT:
-      Serial.println("Client disconnected");
-      break;
-    case WS_EVT_DATA:
-      Serial.print("Socket data: ");
-      Serial.println((char)data[0]);
-      switch ((char)data[0])
-      {
-        case 'B':
-          c = {screenBrightness, data[1]};
-          xQueueSend(commandQ, &c, portMAX_DELAY);
-          break;
-          /* case 'L':
-            c = {moveLeft};
-            xQueueSend(commandQ, &c, portMAX_DELAY);
-            break;
-            case 'R':
-            c = {moveRight};
-            xQueueSend(commandQ, &c, portMAX_DELAY);
-            break;
-            case 'D':
-            c = {moveDown};
-            xQueueSend(commandQ, &c, portMAX_DELAY);
-            break;
-            case 'l':
-            c = {rotateLeft};
-            xQueueSend(commandQ, &c, portMAX_DELAY);
-            break;
-            case 'r':
-            c = {rotateRight};
-            xQueueSend(commandQ, &c, portMAX_DELAY);
-            break;
-            case 'P':
-            c = {gamePlay};
-            xQueueSend(commandQ, &c, portMAX_DELAY);
-            break;
-            case 'O':
-            c = {gameStop};
-            xQueueSend(commandQ, &c, portMAX_DELAY);
-            break; */
-      }
-      break;
-  }
-}
-
-std::string oldId = "";
-std::string currentId = "";
-
-void printCurrentlyPlayingToSerial(CurrentlyPlaying currentlyPlaying);
-
-void printCurrentlyPlayingToSerial(CurrentlyPlaying currentlyPlaying)
-{
-  // Use the details in this method or if you want to store them
-  // make sure you copy them (using something like strncpy)
-  // const char* artist =
-
-  Serial.println("--------- Currently Playing ---------");
-
-  Serial.print("Is Playing: ");
-  if (currentlyPlaying.isPlaying)
-  {
-    Serial.println("Yes");
-  }
-  else
-  {
-    Serial.println("No");
-  }
-
-  Serial.print("Track: ");
-  Serial.println(currentlyPlaying.trackName);
-  Serial.print("Track URI: ");
-  Serial.println(currentlyPlaying.trackUri);
-  Serial.println();
-  currentId = currentlyPlaying.id;
-
-  Serial.println("Artists: ");
-  for (int i = 0; i < currentlyPlaying.numArtists; i++)
-  {
-    Serial.print("Name: ");
-    Serial.println(currentlyPlaying.artists[i].artistName);
-    Serial.print("Artist URI: ");
-    Serial.println(currentlyPlaying.artists[i].artistUri);
-    Serial.println();
-  }
-
-  Serial.print("Album: ");
-  Serial.println(currentlyPlaying.albumName);
-  Serial.print("Album URI: ");
-  Serial.println(currentlyPlaying.albumUri);
-  Serial.println();
-
-  long progress = currentlyPlaying.progressMs; // duration passed in the song
-  long duration = currentlyPlaying.durationMs; // Length of Song
-  Serial.print("Elapsed time of song (ms): ");
-  Serial.print(progress);
-  Serial.print(" of ");
-  Serial.println(duration);
-  Serial.println();
-
-  float percentage = ((float)progress / (float)duration) * 100;
-  int clampedPercentage = (int)percentage;
-  Serial.print("<");
-  for (int j = 0; j < 50; j++)
-  {
-    if (clampedPercentage >= (j * 2))
+  case WS_EVT_CONNECT:
+    Serial.println("Websocket client connection received");
+    break;
+  case WS_EVT_DISCONNECT:
+    Serial.println("Client disconnected");
+    break;
+  case WS_EVT_DATA:
+    Serial.print("Socket data: ");
+    Serial.println((char)data[0]);
+    switch ((char)data[0])
     {
-      Serial.print("=");
+    case 'B':
+      c = {screenBrightness, data[1]};
+      xQueueSend(commandQ, &c, portMAX_DELAY);
+      break;
+      /* case 'L':
+        c = {moveLeft};
+        xQueueSend(commandQ, &c, portMAX_DELAY);
+        break;
+        case 'R':
+        c = {moveRight};
+        xQueueSend(commandQ, &c, portMAX_DELAY);
+        break;
+        case 'D':
+        c = {moveDown};
+        xQueueSend(commandQ, &c, portMAX_DELAY);
+        break;
+        case 'l':
+        c = {rotateLeft};
+        xQueueSend(commandQ, &c, portMAX_DELAY);
+        break;
+        case 'r':
+        c = {rotateRight};
+        xQueueSend(commandQ, &c, portMAX_DELAY);
+        break;
+        case 'P':
+        c = {gamePlay};
+        xQueueSend(commandQ, &c, portMAX_DELAY);
+        break;
+        case 'O':
+        c = {gameStop};
+        xQueueSend(commandQ, &c, portMAX_DELAY);
+        break; */
     }
-    else
-    {
-      Serial.print("-");
-    }
+    break;
   }
-  Serial.println(">");
-  Serial.println();
-
-  // will be in order of widest to narrowest
-  // currentlyPlaying.numImages is the number of images that
-  // are stored
-  for (int i = 0; i < currentlyPlaying.numImages; i++)
-  {
-    Serial.println("------------------------");
-    Serial.print("Album Image: ");
-    Serial.println(currentlyPlaying.albumImages[i].url);
-    Serial.print("Dimensions: ");
-    Serial.print(currentlyPlaying.albumImages[i].width);
-    Serial.print(" x ");
-    Serial.print(currentlyPlaying.albumImages[i].height);
-    Serial.println();
-  }
-  Serial.println("------------------------");
-}
-
-void printAnalysisToSerial(Analysis analysis);
-
-void printAnalysisToSerial(Analysis analysis)
-{
-  // Use the details in this method or if you want to store them
-  // make sure you copy them (using something like strncpy)
-  // const char* artist =
-
-  Serial.println("--------- Analysis ---------");
-
-  Serial.print("Tempo: ");
-  Serial.println(analysis.tempo);
-  Serial.print("Time signature: ");
-  Serial.println(analysis.signature);
-  Serial.println();
-
-  Serial.println("NUmber of: ");
-  Serial.print("Bars: ");
-  Serial.println(analysis.numBars);
-  Serial.print("Beats: ");
-  Serial.println(analysis.numBeats);
-  Serial.print("Tatums: ");
-  Serial.println(analysis.numTatums);
-  Serial.println();
-
-  Serial.println("------------------------");
 }
 
 WiFiMulti wifiMulti;
-WiFiClientSecure client;
-SpotifyArduino spotify(client, spotifyId, spotifySecret, SPOTIFYTOKEN);
+HTTPClient http;
 
-unsigned long delayBetweenRequests = 20000; // Time between requests (20 sec)
-unsigned long requestDueTime;               // time when request due
+unsigned long delayBetweenRequests = 1000; // Time between requests (20 sec)
+unsigned long requestDueTime;              // time when request due
+uint8_t currentTrack = 255;
+uint8_t newTrack = 255;
+uint32_t estStart = millis() / 10;
+uint32_t newEst = estStart;
 
 void webTask(void *params)
 {
   uint8_t data;
-  char message[2];
+  command_t cmd;
 
   Serial.print("Web task on core ");
   Serial.println(xPortGetCoreID());
@@ -482,6 +365,8 @@ void webTask(void *params)
     out += IP.toString();
     Serial.println(out);
   }
+
+  http.setReuse(true);
 
   // Activate mDNS this is used to be able to connect to the server
   // with local DNS hostmane esp8266.local
@@ -517,14 +402,6 @@ void webTask(void *params)
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
   server.begin();
 
-  client.setCACert(spotify_server_cert);
-  Serial.println(spotifySecret);
-  Serial.println("Refreshing Access Tokens");
-  if (!spotify.refreshAccessToken())
-  {
-    Serial.println("Failed to get access tokens");
-  }
-
   for (;;)
   {
     vTaskDelay(10);
@@ -543,36 +420,120 @@ void webTask(void *params)
       } */
     if (millis() > requestDueTime)
     {
-      Serial.print("Free Heap: ");
-      Serial.println(ESP.getFreeHeap());
+      // Serial.print("Free Heap: ");
+      // Serial.println(ESP.getFreeHeap());
 
-      Serial.println("getting currently playing song:");
-      // Market can be excluded if you want e.g. spotify.getCurrentlyPlaying()
-      int status = spotify.getCurrentlyPlaying(printCurrentlyPlayingToSerial, "");
-      if (status == 200)
+      // Serial.println("getting currently playing song and progress:");
+
+      http.begin(String(URL) + "/progress");
+      unsigned long apiTime = millis();
+      int status = http.GET();
+      if (status > 0)
       {
-        Serial.println("Successfully got currently playing");
-        if (currentId != oldId)
+        if (status == HTTP_CODE_OK)
         {
-          oldId = currentId;
-          int status = spotify.getTrackAnalysis(printAnalysisToSerial, currentId.c_str());
-          if (status != 200)
+          WiFiClient *stream = http.getStreamPtr();
+          if (stream->read())
           {
-            Serial.print("Get analysis error: ");
+            // Serial.println("Successfully got currently playing");
+            newTrack = stream->read();
+            // Serial.print("Track: ");
+            // Serial.println(newTrack);
+            uint16_t progress = stream->read();
+            progress = (progress << 8) | stream->read();
+            newEst = (apiTime / 10 - progress);
+          }
+          else
+          {
+            Serial.println("No progress data");
+          }
+        }
+        else
+        {
+          Serial.print("Error: ");
+          Serial.println(status);
+        }
+      }
+      http.end();
+      requestDueTime = millis() + delayBetweenRequests;
+      if (currentTrack != newTrack)
+      {
+        // Serial.println("New track, need new analysis");
+        http.begin(String(URL) + "/analysis");
+        int status = http.GET();
+        if (status > 0)
+        {
+          if (status == HTTP_CODE_OK)
+          {
+            WiFiClient *stream = http.getStreamPtr();
+            if (stream->read())
+            {
+              Serial.println("Successfully got analysis");
+              analIn.tempo = stream->read();
+              Serial.print("Tempo: ");
+              Serial.println(analIn.tempo);
+              uint8_t temp = stream->read();
+              analIn.barCount = (temp << 8) | stream->read();
+              Serial.print("Bar Count: ");
+              Serial.println(analIn.barCount);
+              temp = stream->read();
+              analIn.beatCount = (temp << 8) | stream->read();
+              Serial.print("Beat Count: ");
+              Serial.println(analIn.beatCount);
+              temp = stream->read();
+              analIn.tatumCount = (temp << 8) | stream->read();
+              Serial.print("Tatum Count: ");
+              Serial.println(analIn.tatumCount);
+              if (analIn.barCount > MAX_BARS)
+                analIn.barCount = MAX_BARS;
+              if (analIn.beatCount > MAX_BEATS)
+                analIn.beatCount = MAX_BEATS;
+              if (analIn.tatumCount > MAX_TATUMS)
+                analIn.tatumCount = MAX_TATUMS;
+
+              for (int i = 0; i < analIn.barCount; i++)
+              {
+                temp = stream->read();
+                analIn.bars[i] = (temp << 8) | stream->read();
+              }
+              for (int i = 0; i < analIn.beatCount; i++)
+              {
+                temp = stream->read();
+                analIn.beats[i] = (temp << 8) | stream->read();
+              }
+              for (int i = 0; i < analIn.tatumCount; i++)
+              {
+                temp = stream->read();
+                analIn.tatums[i] = (temp << 8) | stream->read();
+              }
+              xQueueSend(analysisQ, &analIn, portMAX_DELAY);
+              estStart = newEst;
+              cmd = {newAnalysis, 0, estStart};
+              xQueueSend(commandQ, &cmd, portMAX_DELAY);
+              currentTrack = newTrack;
+            }
+            else
+            {
+              Serial.println("No analysis data");
+            }
+          }
+          else
+          {
+            Serial.print("Error: ");
             Serial.println(status);
           }
         }
-      }
-      else if (status == 204)
-      {
-        Serial.println("Doesn't seem to be anything playing");
+        http.end();
       }
       else
       {
-        Serial.print("Error: ");
-        Serial.println(status);
+        if ((newEst > estStart && newEst - estStart > 50) || (estStart > newEst && estStart - newEst > 50))
+        {
+          estStart = (newEst + estStart)/2;
+          cmd = {newStart, 0, estStart};
+          xQueueSend(commandQ, &cmd, portMAX_DELAY);
+        }
       }
-      requestDueTime = millis() + delayBetweenRequests;
     }
   }
 }
