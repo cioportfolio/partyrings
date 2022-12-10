@@ -9,7 +9,7 @@
 #include <ESPmDNS.h>
 
 #define MAX_COMMANDS 5
-enum action_t {screenBrightness, newStart, newAnalysis};
+enum action_t {screenBrightness, newStart, newAnalysis, modeDisco, modeWhite};
 typedef struct {
   action_t action;
 /*  uint8_t x;

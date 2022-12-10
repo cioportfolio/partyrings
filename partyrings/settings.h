@@ -2,7 +2,7 @@
 #define __SETTINGS__
 
 #define BRIGHTNESS 32
-#define LED_PIN 25
+#define LED_PIN 22
 #define COLOR_ORDER GRB
 #define CHIPSET WS2812B
 
@@ -29,8 +29,8 @@ const uint8_t kMatrixHeight = 12;
 //const bool kMatrixSerpentineLayout = true;
 //const bool kMatrixTopToBottom = false;
 
-#define MAX_BARS 200
-#define MAX_BEATS 800
-#define MAX_TATUMS 1600
+#define MAX_BARS 300
+#define MAX_BEATS 1200
+#define MAX_TATUMS 2400
 
 #endif

@@ -294,6 +294,14 @@ void wsHandler(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
       c = {screenBrightness, data[1]};
       xQueueSend(commandQ, &c, portMAX_DELAY);
       break;
+    case 'D':
+      c = {modeDisco, 0};
+      xQueueSend(commandQ, &c, portMAX_DELAY);
+      break;
+    case 'W':
+      c = {modeWhite, 0};
+      xQueueSend(commandQ, &c, portMAX_DELAY);
+      break;
       /* case 'L':
         c = {moveLeft};
         xQueueSend(commandQ, &c, portMAX_DELAY);
@@ -484,27 +492,56 @@ void webTask(void *params)
               analIn.tatumCount = (temp << 8) | stream->read();
               Serial.print("Tatum Count: ");
               Serial.println(analIn.tatumCount);
-              if (analIn.barCount > MAX_BARS)
-                analIn.barCount = MAX_BARS;
+
               if (analIn.beatCount > MAX_BEATS)
                 analIn.beatCount = MAX_BEATS;
               if (analIn.tatumCount > MAX_TATUMS)
                 analIn.tatumCount = MAX_TATUMS;
 
-              for (int i = 0; i < analIn.barCount; i++)
+              for (int i = 0; i < analIn.barCount && i < MAX_BARS; i++)
               {
                 temp = stream->read();
                 analIn.bars[i] = (temp << 8) | stream->read();
               }
-              for (int i = 0; i < analIn.beatCount; i++)
+              if (analIn.barCount > MAX_BARS)
+              {
+                Serial.print("Skipping Bars: ");
+                Serial.println(analIn.barCount - MAX_BARS);
+                for (int i = 0; i < (analIn.barCount - MAX_BARS) * 2; i++)
+                {
+                  temp = stream->read();
+                }
+                analIn.barCount = MAX_BARS;
+              }
+              for (int i = 0; i < analIn.beatCount && i < MAX_BEATS; i++)
               {
                 temp = stream->read();
                 analIn.beats[i] = (temp << 8) | stream->read();
               }
-              for (int i = 0; i < analIn.tatumCount; i++)
+              if (analIn.beatCount > MAX_BEATS)
+              {
+                Serial.print("Skipping Beats: ");
+                Serial.println(analIn.beatCount - MAX_BEATS);
+                for (int i = 0; i < (analIn.beatCount - MAX_BEATS) * 2; i++)
+                {
+                  temp = stream->read();
+                }
+                analIn.beatCount = MAX_BEATS;
+              }
+              for (int i = 0; i < analIn.tatumCount && i < MAX_TATUMS; i++)
               {
                 temp = stream->read();
                 analIn.tatums[i] = (temp << 8) | stream->read();
+              }
+              if (analIn.tatumCount > MAX_TATUMS)
+              {
+                Serial.print("Skipping tatums: ");
+                Serial.println(analIn.tatumCount - MAX_TATUMS);
+                for (int i = 0; i < (analIn.tatumCount - MAX_TATUMS) * 2; i++)
+                {
+                  temp = stream->read();
+                }
+                analIn.tatumCount = MAX_TATUMS;
               }
               xQueueSend(analysisQ, &analIn, portMAX_DELAY);
               estStart = newEst;
@@ -529,7 +566,7 @@ void webTask(void *params)
       {
         if ((newEst > estStart && newEst - estStart > 50) || (estStart > newEst && estStart - newEst > 50))
         {
-          estStart = (newEst + estStart)/2;
+          estStart = (newEst + estStart) / 2;
           cmd = {newStart, 0, estStart};
           xQueueSend(commandQ, &cmd, portMAX_DELAY);
         }

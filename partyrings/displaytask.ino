@@ -11,6 +11,7 @@ int shownTatum = -1;
 uint16_t nextBar = 0;
 uint16_t nextBeat = 0;
 uint16_t nextTatum = 0;
+int dispMode = 0;
 int tog = 1;
 unsigned long trackStart = millis() / 10;
 
@@ -114,6 +115,14 @@ void handle_controls()
       xQueueReceive(analysisQ, &analOut, portMAX_DELAY);
       resetEvents();
       break;
+    case modeDisco:
+      Serial.println("Disco mode");
+      dispMode = 0;
+      break;
+    case modeWhite:
+      Serial.println("Static white mode");
+      dispMode = 1;
+      break;      
     default:
       break;
     }
@@ -229,7 +238,14 @@ void genDisplay()
   boolean tt = checkTatum();
   colorIndex +=colStep;
   ChangePalettePeriodically(br, bt, tt);
-  FillLEDsFromPaletteColors(br, bt, tt);
+  if (dispMode == 0)
+  {
+    FillLEDsFromPaletteColors(br, bt, tt);
+  }
+  else
+  {
+    fill_solid(leds, NUM_LEDS, CRGB(255,255,255));
+  }
   if (tt)
   {
     toggleLED();
