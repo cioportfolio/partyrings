@@ -6,6 +6,10 @@
 #define COLOR_ORDER GRB
 #define CHIPSET WS2812B
 
+#ifndef LED_BUILTIN
+#define LED_BUILTIN 5
+#endif
+
 /* #define SW_PIN 21
 #define X_PIN 35
 #define Y_PIN 32
@@ -22,8 +26,8 @@
 #define URL "http://192.168.1.20:8001" //office pc
 
 // Params for width and height
-const uint8_t kMatrixWidth = 2;
-const uint8_t kMatrixHeight = 12;
+const uint8_t kMatrixWidth = 1;
+const uint8_t kMatrixHeight = 24;
 
 // Param for different pixel layouts
 //const bool kMatrixSerpentineLayout = true;

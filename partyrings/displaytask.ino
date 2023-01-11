@@ -122,7 +122,7 @@ void handle_controls()
     case modeWhite:
       Serial.println("Static white mode");
       dispMode = 1;
-      break;      
+      break;
     default:
       break;
     }
@@ -236,7 +236,7 @@ void genDisplay()
   boolean bt = checkBeat();
   boolean br = checkBar();
   boolean tt = checkTatum();
-  colorIndex +=colStep;
+  colorIndex += colStep;
   ChangePalettePeriodically(br, bt, tt);
   if (dispMode == 0)
   {
@@ -244,7 +244,12 @@ void genDisplay()
   }
   else
   {
-    fill_solid(leds, NUM_LEDS, CRGB(255,255,255));
+    fill_solid(leds, NUM_LEDS, CRGB(0, 0, 0));
+    for (int i = 4; i < 8; i++)
+    {
+      leds[i] = CRGB(255, 255, 255);
+      leds[NUM_LEDS - 1 - i] = CRGB(255, 255, 255);
+    }
   }
   if (tt)
   {
@@ -285,28 +290,36 @@ void FillLEDsFromPaletteColors(boolean barNow, boolean beatNow, boolean tatumNow
       break;
     }
     uint8_t colOffset = colorIndex + tightness * pos * dir;
-    leds[i] = ColorFromPalette(currentPalette, colOffset, beatNow?255:128, currentBlending);
+    leds[i] = ColorFromPalette(currentPalette, colOffset, beatNow ? 255 : 128, currentBlending);
   }
 }
 
 uint8_t idx2Eye(uint8_t i)
 {
-  return i >= 12;
+  return i >= kMatrixHeight;
 }
 
 uint8_t idx2Y(uint8_t i)
 {
-  if (i < 7)
+  if (i <= kMatrixHeight / 2)
     return i;
-  if (i < 13)
-    return 12 - i;
-  if (i < 19)
-    return i - 12;
-  return 24 - i;
+  if (i <= kMatrixHeight)
+    return kMatrixHeight - i;
+  if (i <= kMatrixHeight + kMatrixHeight / 2)
+    return i - kMatrixHeight;
+  return 2 * kMatrixHeight - i;
 }
 
 uint8_t idx2X(uint8_t i)
 {
+  if (kMatrixWidth == 1)
+  {
+    if (i <= kMatrixHeight / 4)
+      return i + kMatrixHeight / 4;
+    if (i <= kMatrixHeight / 4 + kMatrixHeight / 2)
+      return kMatrixHeight / 4 + kMatrixHeight / 2 - i;
+    return i - kMatrixHeight / 4 - kMatrixHeight / 2;
+  }
   if (i < 4)
     return i + 10;
   if (i < 10)
@@ -322,11 +335,15 @@ uint8_t idx2X(uint8_t i)
 
 uint8_t idx2Clock(uint8_t i)
 {
-  return i - 12 * idx2Eye(i);
+  return i - kMatrixHeight * idx2Eye(i);
 }
 
 uint8_t idx2Sequence(uint8_t i)
 {
+  if (kMatrixWidth == 1)
+  {
+    return i;
+  }
   if (i < 10)
     return i;
   if (i < 12)
@@ -338,6 +355,10 @@ uint8_t idx2Sequence(uint8_t i)
 
 uint8_t idx2Fig8(uint8_t i)
 {
+  if (kMatrixWidth==1)
+  {
+    return i;
+  }
   if (i < 10)
     return i;
   if (i < 12)
